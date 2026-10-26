@@ -51,22 +51,29 @@ namespace Lumen.UI
             requested.Clear();
             queue.Clear();
             sinceLastHint = NormalGap - 1f; // first hint shortly after the floor intro
-            stalkerAlerted = brazierLit = false;
             BeginFloor();
+            Request("tut.move");
         }
 
+        /// <summary>
+        /// Called once the new floor is loaded. Clears event flags so nothing that happened
+        /// before (e.g. the attract-mode demo during the fade) triggers a hint.
+        /// </summary>
         public void BeginFloor()
         {
             floorTime = 0f;
             moved = 0f;
             hasLastPos = false;
+            stalkerAlerted = brazierLit = false;
         }
 
         void Request(string key)
         {
             if (!requested.Add(key)) return;
-            if (Urgent.Contains(key)) queue.Insert(0, key);
-            else queue.Add(key);
+            if (!Urgent.Contains(key)) { queue.Add(key); return; }
+            // Urgent hints jump the queue, but never ahead of the very first "how to move" hint.
+            int at = queue.Count > 0 && queue[0] == "tut.move" ? 1 : 0;
+            queue.Insert(at, key);
         }
 
         public void Tick(float dt, LevelInstance level, PlayerFlame player)
@@ -80,7 +87,6 @@ namespace Lumen.UI
             lastPos = pos;
             hasLastPos = true;
 
-            Request("tut.move");
             if (moved > 4f || floorTime > 6f) Request("tut.brazier");
             if (brazierLit) Request("tut.fuel");
             if (stalkerAlerted || NearestShade(pos, EnemyKind.Stalker, 7f)) Request("tut.dim");

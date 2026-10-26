@@ -17,7 +17,8 @@ namespace Lumen.UI
     {
         const int FuelBarWidth = 100, FuelBarHeight = 7;
         const int PipSize = 8, PipGap = 12;
-        const float EdgeInset = 14f;
+        // Arrow margins keep it clear of the HUD bands (gauges on top, hints at the bottom).
+        const float EdgeInsetSide = 14f, EdgeInsetTop = 36f, EdgeInsetBottom = 28f;
 
         RectTransform root;
         Camera cam;
@@ -187,7 +188,7 @@ namespace Lumen.UI
             fuelFill.color = fuelColor * pulse;
             fuelBack.color = player.IsRefueling ? new Color(0.25f, 0.15f, 0.05f) : new Color(0.12f, 0.08f, 0.1f);
 
-            string label = player.IsRefueling ? Locale.Get("hud.refueling") : player.IsDimmed ? Locale.Get("hud.dimmed") : "";
+            string label = !player.IsAlive ? "" : player.IsRefueling ? Locale.Get("hud.refueling") : player.IsDimmed ? Locale.Get("hud.dimmed") : "";
             if (label != shownFuelLabel)
             {
                 shownFuelLabel = label;
@@ -225,9 +226,12 @@ namespace Lumen.UI
             Vector2 size = root.rect.size;
             Vector2 dir = new Vector2(vp.x - 0.5f, vp.y - 0.5f);
             if (dir.sqrMagnitude < 1e-6f) dir = Vector2.up;
-            Vector2 half = size * 0.5f - Vector2.one * EdgeInset;
-            float scale = Mathf.Min(half.x / Mathf.Max(1e-4f, Mathf.Abs(dir.x * size.x)), half.y / Mathf.Max(1e-4f, Mathf.Abs(dir.y * size.y)));
-            Vector2 pos = new Vector2(dir.x * size.x, dir.y * size.y) * scale;
+            // Usable rectangle (relative to screen center), shrunk by the HUD margins.
+            float maxX = size.x * 0.5f - EdgeInsetSide;
+            float maxY = dir.y > 0 ? size.y * 0.5f - EdgeInsetTop : size.y * 0.5f - EdgeInsetBottom;
+            Vector2 ray = new Vector2(dir.x * size.x, dir.y * size.y);
+            float scale = Mathf.Min(maxX / Mathf.Max(1e-4f, Mathf.Abs(ray.x)), maxY / Mathf.Max(1e-4f, Mathf.Abs(ray.y)));
+            Vector2 pos = ray * scale;
             float bob = Mathf.Sin(Time.unscaledTime * 6f) * 1.5f;
             pos += dir.normalized * bob;
             objectiveArrow.rectTransform.anchoredPosition = new Vector2(Mathf.Round(pos.x), Mathf.Round(pos.y));

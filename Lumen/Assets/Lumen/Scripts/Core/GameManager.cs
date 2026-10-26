@@ -153,7 +153,7 @@ namespace Lumen.Core
         {
             runSeed = seed < 0 ? Random.Range(0, 999999) : seed;
             score.Reset();
-            score.Counting = true;
+            score.Counting = false; // starts counting once floor 1 is loaded, not during the fade from the demo
             RunTime = 0f;
             Telemetry.BeginRun(runSeed);
             tutorial.BeginRun();
@@ -177,6 +177,7 @@ namespace Lumen.Core
             // Fuel carries over between floors with a small bonus, so efficiency matters.
             player.SetFuel(FuelModel.CarryToNextFloor(carried, Tuning.floorCarryBonus, Tuning.floorCarryMinimum, Tuning.maxFuel));
 
+            score.Counting = true;
             hud.ClearTransient();
             hud.Announce(Locale.Get("floor.enter") + " " + floor, IntroFor(floor), 2.8f);
             tutorial.BeginFloor();
@@ -264,7 +265,8 @@ namespace Lumen.Core
             Current = State.GameOver;
             score.Counting = false;
             Telemetry.EndRun(cause, Floor, Score, RunTime, FloorTime);
-            bool record = !Headless && SaveData.SubmitRun(Score, Floor);
+            // Only human runs count for records: bot playtests must never touch the player's save.
+            bool record = InputOverride == null && SaveData.SubmitRun(Score, Floor);
             StartCoroutine(ShowGameOverDelayed(cause, record));
         }
 

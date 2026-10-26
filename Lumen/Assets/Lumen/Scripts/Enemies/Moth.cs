@@ -31,7 +31,7 @@ namespace Lumen.Enemies
             // Pale wings catch any glimmer: drawn unlit but dimmed, so a moth reads as a faint pale
             // flutter in the dark instead of a brown pebble (and you see it coming, as intended).
             moth.bodySprite.sharedMaterial = LumenAssets.I.Unlit;
-            moth.bodySprite.color = new Color(0.55f, 0.53f, 0.5f);
+            moth.bodySprite.color = new Color(0.8f, 0.77f, 0.7f);
             return moth;
         }
 

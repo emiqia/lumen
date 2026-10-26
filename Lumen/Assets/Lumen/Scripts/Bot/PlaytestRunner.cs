@@ -78,8 +78,10 @@ namespace Lumen.Bot
                 GameEvents.ExitOpened += () => Mark("exit_open");
                 GameEvents.PlayerHit += (_, __, k) => Mark("hit_" + k);
                 // The title screen with the attract-mode demo running behind it.
-                yield return new WaitForSecondsRealtime(4f);
+                gm.EnterTitle();
+                yield return new WaitForSecondsRealtime(5f);
                 Capture("title");
+                yield return null;
             }
 
             for (int i = 0; i < runs; i++)

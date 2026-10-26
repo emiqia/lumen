@@ -16,7 +16,7 @@ _staging/
 _shots/
 _diag/
 _*.log
-_tests.xml
+_tests*.xml
 playtest/
 Lumen/*.slnx
 Lumen/.vscode/

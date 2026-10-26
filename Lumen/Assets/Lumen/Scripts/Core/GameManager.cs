@@ -160,7 +160,6 @@ namespace Lumen.Core
             score.Reset();
             score.Counting = false; // starts counting once floor 1 is loaded, not during the fade from the demo
             RunTime = 0f;
-            Telemetry.BeginRun(runSeed);
             tutorial.BeginRun();
             screens.ShowTitle(false);
             screens.HideGameOver();
@@ -182,6 +181,8 @@ namespace Lumen.Core
             // Fuel carries over between floors with a small bonus, so efficiency matters.
             player.SetFuel(FuelModel.CarryToNextFloor(carried, Tuning.floorCarryBonus, Tuning.floorCarryMinimum, Tuning.maxFuel));
 
+            // Score and telemetry start once the run's own floor exists, never during the fade from the demo.
+            if (floor == 1) Telemetry.BeginRun(runSeed);
             score.Counting = true;
             hud.ClearTransient();
             hud.Announce(Locale.Get("floor.enter") + " " + floor, IntroFor(floor), 2.8f);

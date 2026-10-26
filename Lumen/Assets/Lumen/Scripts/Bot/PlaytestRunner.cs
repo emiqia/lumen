@@ -88,8 +88,7 @@ namespace Lumen.Bot
             {
                 int seed = 1000 + i * 7919;
                 UnityEngine.Random.InitState(seed);
-                gm.StartRun(seed);
-                gm.Telemetry.Current.seed = seed;
+                gm.StartRun(seed); // the run seed is recorded in telemetry by GameManager
                 float start = Time.unscaledTime;
                 int shotFloor = 0, enemyShots = 0;
                 bool shotBrazier = false;

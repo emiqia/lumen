@@ -20,3 +20,4 @@ _tests*.xml
 playtest*/
 Lumen/*.slnx
 Lumen/.vscode/
+Release/

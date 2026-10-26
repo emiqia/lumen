@@ -181,12 +181,18 @@ namespace Lumen.UI
             var tuning = GameTuning.I;
             float f = player.FuelNormalized;
             bool low = player.Fuel <= tuning.lowFuelWarning;
-            float pulse = low ? 0.6f + 0.4f * Mathf.Sin(Time.unscaledTime * 12f) : 1f;
-            fuelFill.rectTransform.sizeDelta = new Vector2(Mathf.Round(FuelBarWidth * f), FuelBarHeight);
+            // 0..1 heartbeat while low. It pulses brightness, never alpha: the gauge must stay
+            // fully visible exactly when the player is about to die.
+            float pulse = low ? 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 12f) : 0f;
+            // Never shrink to nothing while there is fuel left: 2 px minimum.
+            float width = player.Fuel > 0f ? Mathf.Max(2f, Mathf.Round(FuelBarWidth * f)) : 0f;
+            fuelFill.rectTransform.sizeDelta = new Vector2(width, FuelBarHeight);
             // Discrete thresholds read faster than a gradient: yellow > 50%, orange > 25%, red below.
             Color fuelColor = f > 0.5f ? Palette.FireYellow : f > 0.25f ? Palette.FireOrange : Palette.FireRed;
-            fuelFill.color = fuelColor * pulse;
-            fuelBack.color = player.IsRefueling ? new Color(0.25f, 0.15f, 0.05f) : new Color(0.12f, 0.08f, 0.1f);
+            fuelFill.color = Color.Lerp(fuelColor, Palette.FireWhite, pulse * 0.6f);
+            Color idleBack = new Color(0.12f, 0.08f, 0.1f);
+            fuelBack.color = player.IsRefueling ? new Color(0.25f, 0.15f, 0.05f)
+                : low ? Color.Lerp(idleBack, Palette.FireDeep, pulse) : idleBack;
 
             string label = !player.IsAlive ? "" : player.IsRefueling ? Locale.Get("hud.refueling") : player.IsDimmed ? Locale.Get("hud.dimmed") : "";
             if (label != shownFuelLabel)
@@ -204,7 +210,7 @@ namespace Lumen.UI
             flareIcon.color = ready ? Palette.FireWhite : new Color(0.35f, 0.32f, 0.38f);
 
             warningText.Text = low && player.IsAlive ? Locale.Get("hud.low") : "";
-            warningText.color = new Color(1, 0.3f, 0.35f, pulse);
+            warningText.color = Color.Lerp(Palette.UiDanger, Palette.FireWhite, pulse * 0.5f);
         }
 
         void UpdateObjectiveArrow(GameManager gm)

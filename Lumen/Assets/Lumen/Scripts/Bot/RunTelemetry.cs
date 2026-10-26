@@ -27,6 +27,10 @@ namespace Lumen.Bot
         public class RunRecord
         {
             public int seed;
+            public string difficulty;
+            public List<string> blessings = new List<string>();
+            public float secondsSprinting;
+            public int itemsCollected, itemsUsed, revives;
             public int floorReached;
             public int score;
             public float seconds;
@@ -52,6 +56,9 @@ namespace Lumen.Bot
         public RunTelemetry()
         {
             GameEvents.EmberCollected += _ => { if (Current != null) Current.embersCollected++; };
+            GameEvents.ItemCollected += (_, __) => { if (Current != null) Current.itemsCollected++; };
+            GameEvents.ItemUsed += (_, __) => { if (Current != null) Current.itemsUsed++; };
+            GameEvents.PlayerRevived += _ => { if (Current != null) Current.revives++; };
             GameEvents.Flare += (_, __) =>
             {
                 if (Current == null) return;
@@ -79,10 +86,12 @@ namespace Lumen.Bot
             };
         }
 
-        public void BeginRun(int seed = 0)
+        public void BeginRun(int seed = 0, Difficulty difficulty = Difficulty.Antorcha)
         {
-            Current = new RunRecord { seed = seed };
+            Current = new RunRecord { seed = seed, difficulty = difficulty.ToString() };
         }
+
+        public void OnBlessing(string id) => Current?.blessings.Add(id);
 
         public void BeginFloor(int f)
         {
@@ -96,11 +105,12 @@ namespace Lumen.Bot
             if (Current != null && now > before) Current.braziersLit += now - before;
         }
 
-        public void Sample(float fuel, bool dimmed, float dt)
+        public void Sample(float fuel, bool dimmed, bool sprinting, float dt)
         {
             if (Current == null) return;
             if (fuel < Current.minFuel) Current.minFuel = fuel;
             if (dimmed) Current.secondsDimmed += dt;
+            if (sprinting) Current.secondsSprinting += dt;
         }
 
         public void EndFloor(float seconds, float fuel)

@@ -63,6 +63,35 @@ namespace Lumen.UI
             img.raycastTarget = false;
             return img;
         }
+
+        /// <summary>A sprite shown at an integer multiple of its pixel size (keeps pixel art crisp).</summary>
+        public static Image Sprite(Transform parent, Sprite sprite, Vector2 anchor, Vector2 pos, int scale)
+        {
+            var img = Box(parent, anchor, pos, sprite.rect.size * scale, Color.white);
+            img.sprite = sprite;
+            img.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            return img;
+        }
+
+        /// <summary>Greedy word wrap for the pixel font, which has no automatic line breaking.</summary>
+        public static string Wrap(string text, int maxChars)
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (var paragraph in text.Split('\n'))
+            {
+                int lineLen = 0;
+                foreach (var word in paragraph.Split(' '))
+                {
+                    if (word.Length == 0) continue;
+                    if (lineLen > 0 && lineLen + 1 + word.Length > maxChars) { sb.Append('\n'); lineLen = 0; }
+                    else if (lineLen > 0) { sb.Append(' '); lineLen++; }
+                    sb.Append(word);
+                    lineLen += word.Length;
+                }
+                sb.Append('\n');
+            }
+            return sb.ToString().TrimEnd('\n');
+        }
     }
 
     /// <summary>

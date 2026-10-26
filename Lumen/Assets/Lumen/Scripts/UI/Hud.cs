@@ -24,7 +24,14 @@ namespace Lumen.UI
         RectTransform root;
         Camera cam;
         Canvas canvas;
-        Image fuelFill, fuelBack, flareFill, objectiveArrow, hintBand;
+        Image fuelFill, fuelBack, flareFill, hintBand;
+        readonly List<Image> arrows = new List<Image>();     // pooled objective markers
+        readonly List<Transform> arrowTargets = new List<Transform>();
+        Image lanternIcon, oilIcon, lureIcon;
+        PixelText oilCount, lureCount, timerText;
+
+        /// <summary>Set when a map is picked up: every unlit brazier on the floor gets an edge marker.</summary>
+        public bool RevealAllBraziers { get; set; }
         PixelText fuelLabel, flareIcon, floorText, scoreText, brazierText, announceText, subAnnounceText, hintText, warningText;
         readonly List<Image> pipFills = new List<Image>();
         readonly List<GameObject> pipObjects = new List<GameObject>();
@@ -76,9 +83,23 @@ namespace Lumen.UI
             brazierText = Ui.Text(root, "", Ui.Top, new Vector2(0, -6), 1, PixelText.Align.Center, Palette.UiText, 220);
 
             // Edge arrow toward the current objective.
-            objectiveArrow = Ui.Box(root, Ui.Center, Vector2.zero, new Vector2(ArrowSize, ArrowSize), Palette.FireOrange);
-            objectiveArrow.sprite = SpriteBank.Arrow;
-            objectiveArrow.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            for (int i = 0; i < 8; i++)
+            {
+                var arrow = Ui.Box(root, Ui.Center, Vector2.zero, new Vector2(ArrowSize, ArrowSize), Palette.FireOrange);
+                arrow.sprite = SpriteBank.Arrow;
+                arrow.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                arrow.enabled = false;
+                arrows.Add(arrow);
+            }
+
+            // Inventory (under the gauge panel): lantern, oil and lures, shown only when carried.
+            lanternIcon = Ui.Sprite(root, SpriteBank.Item(Level.ItemKind.Lantern), Ui.TopLeft, new Vector2(14, -46), 1);
+            oilIcon = Ui.Sprite(root, SpriteBank.Item(Level.ItemKind.Oil), Ui.TopLeft, new Vector2(34, -46), 1);
+            oilCount = Ui.Text(root, "", Ui.TopLeft, new Vector2(42, -46), 1, PixelText.Align.Left, Palette.UiText, 16);
+            lureIcon = Ui.Sprite(root, SpriteBank.Item(Level.ItemKind.Lure), Ui.TopLeft, new Vector2(58, -46), 1);
+            lureCount = Ui.Text(root, "", Ui.TopLeft, new Vector2(66, -46), 1, PixelText.Align.Left, Palette.UiText, 40);
+
+            timerText = Ui.Text(root, "", Ui.TopRight, new Vector2(-6, -28), 1, PixelText.Align.Right, Palette.UiText, 140);
 
             // Announcements (center), warnings and hints (bottom). Hints sit on a dark band for contrast.
             announceText = Ui.Text(root, "", Ui.Center, new Vector2(0, 40), 3, PixelText.Align.Center, Palette.UiText, 380);
@@ -170,6 +191,7 @@ namespace Lumen.UI
             }
 
             UpdateObjectiveArrow(gm);
+            UpdateInventory(gm);
 
             announceTimer -= dt;
             float a = Mathf.Clamp01(announceTimer * 2f);
@@ -201,13 +223,14 @@ namespace Lumen.UI
             fuelBack.color = player.IsRefueling ? new Color(0.25f, 0.15f, 0.05f)
                 : low ? Color.Lerp(idleBack, Palette.FireDeep, pulse) : idleBack;
 
-            string label = !player.IsAlive ? "" : player.IsRefueling ? Locale.Get("hud.refueling") : player.IsDimmed ? Locale.Get("hud.dimmed") : "";
+            string label = !player.IsAlive ? "" : player.IsRefueling ? Locale.Get("hud.refueling")
+                : player.IsDimmed ? Locale.Get("hud.dimmed") : player.IsSprinting ? Locale.Get("hud.sprinting") : "";
             if (label != shownFuelLabel)
             {
                 shownFuelLabel = label;
                 fuelLabel.Text = label;
                 // Dimmed is a protective state the player chose: cool "stealth" blue, not disabled grey.
-                fuelLabel.color = player.IsRefueling ? Palette.FireYellow : (Color)Palette.Stealth;
+                fuelLabel.color = player.IsRefueling ? Palette.FireYellow : player.IsDimmed ? (Color)Palette.Stealth : Palette.FireOrange;
             }
 
             float charge = 1f - player.FlareCooldownLeft / tuning.flareCooldown;
@@ -223,18 +246,31 @@ namespace Lumen.UI
 
         void UpdateObjectiveArrow(GameManager gm)
         {
+            arrowTargets.Clear();
             var player = LightField.Player;
-            Transform target = null;
-            if (gm.Current == GameManager.State.Playing && player != null && gm.Level != null)
+            if (gm.Current == GameManager.State.Playing && player != null && gm.Level != null && cam != null)
             {
-                if (gm.ExitOpen) target = gm.Level.Exit.transform;
-                else target = NearestUnlit(gm.Level.Braziers, player.transform.position);
+                if (gm.ExitOpen) arrowTargets.Add(gm.Level.Exit.transform);
+                else if (RevealAllBraziers)
+                {
+                    foreach (var b in gm.Level.Braziers) if (!b.IsLit) arrowTargets.Add(b.transform);
+                }
+                else
+                {
+                    var nearest = NearestUnlit(gm.Level.Braziers, player.transform.position);
+                    if (nearest != null) arrowTargets.Add(nearest);
+                }
             }
-            if (target == null || cam == null) { objectiveArrow.enabled = false; return; }
+            for (int i = 0; i < arrows.Count; i++)
+                PlaceArrow(arrows[i], i < arrowTargets.Count ? arrowTargets[i] : null, gm.ExitOpen);
+        }
 
+        void PlaceArrow(Image arrow, Transform target, bool exit)
+        {
+            if (target == null) { arrow.enabled = false; return; }
             Vector3 vp = cam.WorldToViewportPoint(target.position);
             bool onScreen = vp.x > 0.04f && vp.x < 0.96f && vp.y > 0.06f && vp.y < 0.94f;
-            objectiveArrow.enabled = !onScreen;
+            arrow.enabled = !onScreen;
             if (onScreen) return;
 
             Vector2 size = root.rect.size;
@@ -248,12 +284,31 @@ namespace Lumen.UI
             Vector2 pos = ray * scale;
             float bob = Mathf.Sin(Time.unscaledTime * 6f) * 1.5f;
             pos += dir.normalized * bob;
-            objectiveArrow.rectTransform.anchoredPosition = new Vector2(Mathf.Round(pos.x), Mathf.Round(pos.y));
+            arrow.rectTransform.anchoredPosition = new Vector2(Mathf.Round(pos.x), Mathf.Round(pos.y));
             // Braziers: rotated orange arrow. Exit: blue diamond (different shape, not just color).
-            objectiveArrow.sprite = gm.ExitOpen ? SpriteBank.ExitMarker : SpriteBank.Arrow;
-            objectiveArrow.rectTransform.localRotation = gm.ExitOpen ? Quaternion.identity
-                : Quaternion.Euler(0, 0, Mathf.Atan2(dir.y * size.y, dir.x * size.x) * Mathf.Rad2Deg);
-            objectiveArrow.color = gm.ExitOpen ? Palette.Portal : Palette.FireOrange;
+            arrow.sprite = exit ? SpriteBank.ExitMarker : SpriteBank.Arrow;
+            arrow.rectTransform.localRotation = exit ? Quaternion.identity
+                : Quaternion.Euler(0, 0, Mathf.Atan2(ray.y, ray.x) * Mathf.Rad2Deg);
+            arrow.color = exit ? Palette.Portal : Palette.FireOrange;
+        }
+
+        void UpdateInventory(GameManager gm)
+        {
+            var run = gm.Run;
+            bool show = run != null && gm.Current != GameManager.State.Title;
+            lanternIcon.enabled = show && run.Lantern;
+            oilIcon.enabled = show && run.Oil > 0;
+            oilCount.Text = show && run.Oil > 1 ? "X" + run.Oil : "";
+            lureIcon.enabled = show && run.Lures > 0;
+            lureCount.Text = show && run.Lures > 0 ? (run.Lures > 1 ? "X" + run.Lures + " " : "") + "(E)" : "";
+
+            // Speedrun timer (optional): run time with tenths.
+            if (SaveData.SpeedrunTimer && run != null)
+            {
+                float t = gm.RunTime;
+                timerText.Text = (int)(t / 60) + ":" + ((int)(t % 60)).ToString("00") + "." + (int)(t * 10 % 10);
+            }
+            else timerText.Text = "";
         }
 
         static Transform NearestUnlit(List<Brazier> braziers, Vector2 from)

@@ -12,7 +12,7 @@ namespace Lumen.Bot
 {
     /// <summary>
     /// Automated playtesting. Launch a build with:
-    ///   Lumen.x86_64 -playtest 20 -playtestOut ./playtest [-shots] [-maxRunSeconds 900] [-batchmode -nographics]
+    ///   Lumen.x86_64 -playtest 20 -playtestOut ./playtest [-difficulty Hoguera] [-shots] [-maxRunSeconds 900] [-batchmode -nographics]
     /// The autopilot plays N runs with fixed seeds and writes a JSON report (and optional
     /// screenshots) used for balance and review passes.
     /// </summary>
@@ -42,6 +42,7 @@ namespace Lumen.Bot
         string outDir = "playtest";
         bool shots;
         float maxRunSeconds = 900f;
+        Difficulty difficulty = Difficulty.Antorcha;
         readonly Moments moments = new Moments();
 
         public static bool RequestedFromCommandLine() => Array.IndexOf(Environment.GetCommandLineArgs(), "-playtest") >= 0;
@@ -54,6 +55,7 @@ namespace Lumen.Bot
                 if (args[i] == "-playtest" && i + 1 < args.Length && int.TryParse(args[i + 1], out int n)) runs = n;
                 if (args[i] == "-playtestOut" && i + 1 < args.Length) outDir = args[i + 1];
                 if (args[i] == "-shots") shots = true;
+                if (args[i] == "-difficulty" && i + 1 < args.Length && Enum.TryParse(args[i + 1], true, out Difficulty d)) difficulty = d;
                 if (args[i] == "-maxRunSeconds" && i + 1 < args.Length && float.TryParse(args[i + 1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float m)) maxRunSeconds = m;
             }
             Directory.CreateDirectory(outDir);
@@ -88,7 +90,7 @@ namespace Lumen.Bot
             {
                 int seed = 1000 + i * 7919;
                 UnityEngine.Random.InitState(seed);
-                gm.StartRun(seed); // the run seed is recorded in telemetry by GameManager
+                gm.StartRun(difficulty, seed); // the run seed is recorded in telemetry by GameManager
                 float start = Time.unscaledTime;
                 int shotFloor = 0, enemyShots = 0;
                 bool shotBrazier = false;

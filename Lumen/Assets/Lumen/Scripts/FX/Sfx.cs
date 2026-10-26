@@ -32,7 +32,7 @@ namespace Lumen.FX
             }
             ambientSource = gameObject.AddComponent<AudioSource>();
             ambientSource.loop = true;
-            ambientSource.volume = 0.35f;
+            ambientSource.volume = 0.35f * SaveData.MusicVolume;
             heartSource = gameObject.AddComponent<AudioSource>();
             heartSource.loop = true;
             heartSource.volume = 0f;
@@ -56,10 +56,13 @@ namespace Lumen.FX
 
         public void Blip() => Play(blip, 0.3f);
 
+        /// <summary>Music = ambient drone + heartbeat; effects = everything else.</summary>
+        public void ApplyVolumes() => ambientSource.volume = 0.35f * SaveData.MusicVolume;
+
         /// <summary>0 = calm, 1 = about to die. Drives the heartbeat layer.</summary>
         public void SetDanger(float danger)
         {
-            heartSource.volume = Mathf.Lerp(heartSource.volume, danger * 0.6f, Time.unscaledDeltaTime * 4f);
+            heartSource.volume = Mathf.Lerp(heartSource.volume, danger * 0.6f * SaveData.MusicVolume, Time.unscaledDeltaTime * 4f);
             heartSource.pitch = 0.9f + danger * 0.5f;
         }
 
@@ -68,7 +71,7 @@ namespace Lumen.FX
             var v = voices[nextVoice];
             nextVoice = (nextVoice + 1) % voices.Length;
             v.pitch = pitch;
-            v.PlayOneShot(clip, volume);
+            v.PlayOneShot(clip, volume * SaveData.SfxVolume);
         }
 
         // ------------------------------------------------------------------ synthesis

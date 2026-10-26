@@ -62,6 +62,9 @@ namespace Lumen.FX
             vignette.color.value = Color.Lerp(Color.black, new Color(0.35f, 0f, 0.02f), danger);
         }
 
+        /// <summary>Each biome has its own ambient tint (cold crypts, teal caverns, sickly roots).</summary>
+        public void SetAmbient(Color color) => ambient.color = color;
+
         public void ApplyBrightness()
         {
             float b = SaveData.Brightness;

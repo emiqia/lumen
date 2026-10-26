@@ -4,6 +4,7 @@ using Lumen.FX;
 using Lumen.Level;
 using Lumen.Lighting;
 using Lumen.Player;
+using Lumen.World;
 using UnityEngine;
 
 namespace Lumen.Enemies
@@ -111,6 +112,13 @@ namespace Lumen.Enemies
                 float range = Player.IsDimmed ? 2.5f : Player.LightRadius * 2.2f;
                 float d = Vector2.Distance(pos, Player.transform.position);
                 if (d < range) { best = Player.transform; bestScore = range - d; }
+            }
+            // A thrown lure outshines everything: moths can't resist it.
+            foreach (var l in LevelHazards.Lures)
+            {
+                if (l == null) continue;
+                float d = Vector2.Distance(pos, l.transform.position);
+                if (d < 14f) return l.transform;
             }
             foreach (var b in LightField.Braziers)
             {

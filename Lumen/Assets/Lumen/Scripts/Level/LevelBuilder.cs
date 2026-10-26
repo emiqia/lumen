@@ -17,6 +17,7 @@ namespace Lumen.Level
         public GameObject Root;
         public readonly List<Brazier> Braziers = new List<Brazier>();
         public ExitPortal Exit;
+        public readonly List<Door> Doors = new List<Door>();
         internal readonly List<Object> OwnedAssets = new List<Object>();
 
         public int LitBraziers
@@ -62,6 +63,13 @@ namespace Lumen.Level
             foreach (var c in map.Embers) Ember.Create(DungeonMap.CellToWorld(c), root);
             level.Exit = ExitPortal.Create(DungeonMap.CellToWorld(map.Exit), root);
             foreach (var e in map.Enemies) SpawnEnemy(level, e.Kind, DungeonMap.CellToWorld(e.Cell));
+
+            // Items and the biome's hazards. Phases are staggered so gates and gusts don't sync up.
+            LevelHazards.Set(map);
+            foreach (var it in map.Items) ItemPickup.Create(it, root);
+            var rng = new System.Random(seed + 911);
+            foreach (var d in map.Doors) level.Doors.Add(Door.Create(d, root, (float)rng.NextDouble()));
+            foreach (var w in map.Wind) WindGust.Create(w, root, (float)rng.NextDouble());
 
             return level;
         }

@@ -10,6 +10,33 @@ namespace Lumen.Level
     /// <summary>What killed a shade: tells telemetry whether full light works as a weapon.</summary>
     public enum KillCause { Flare, PlayerLight, Brazier }
 
+    /// <summary>Every three floors the dungeon changes place, with its own palette and hazard.</summary>
+    public enum Biome { Crypts, Flooded, Roots }
+
+    public enum ItemKind { Lantern, Lure, Oil, Map }
+
+    public struct ItemSpawn
+    {
+        public ItemKind Kind;
+        public Vector2Int Cell;
+        public ItemSpawn(ItemKind kind, Vector2Int cell) { Kind = kind; Cell = cell; }
+    }
+
+    /// <summary>A gate across a 2-wide doorway. Vertical gates block horizontal movement.</summary>
+    public struct DoorSpawn
+    {
+        public RectInt Cells;
+        public DoorSpawn(RectInt cells) { Cells = cells; }
+    }
+
+    /// <summary>A corridor section where periodic gusts dim the flame and push it along <c>Direction</c>.</summary>
+    public struct WindSpawn
+    {
+        public RectInt Cells;
+        public Vector2Int Direction;
+        public WindSpawn(RectInt cells, Vector2Int direction) { Cells = cells; Direction = direction; }
+    }
+
     public struct EnemySpawn
     {
         public EnemyKind Kind;
@@ -34,13 +61,22 @@ namespace Lumen.Level
         public readonly List<Vector2Int> Embers = new List<Vector2Int>();
         public readonly List<EnemySpawn> Enemies = new List<EnemySpawn>();
         public readonly List<Vector2Int> Decorations = new List<Vector2Int>();
+        public readonly List<ItemSpawn> Items = new List<ItemSpawn>();
+        public readonly List<DoorSpawn> Doors = new List<DoorSpawn>();
+        public readonly List<WindSpawn> Wind = new List<WindSpawn>();
+        /// <summary>Shallow water over floor cells (walkable; running through it costs light).</summary>
+        public readonly bool[,] Water;
+        public Biome Biome;
 
         public DungeonMap(int width, int height)
         {
             Width = width;
             Height = height;
             Tiles = new Tile[width, height];
+            Water = new bool[width, height];
         }
+
+        public bool IsWater(Vector2Int c) => InBounds(c) && Water[c.x, c.y];
 
         public bool InBounds(int x, int y) => x >= 0 && y >= 0 && x < Width && y < Height;
         public bool InBounds(Vector2Int c) => InBounds(c.x, c.y);

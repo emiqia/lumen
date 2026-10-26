@@ -19,6 +19,9 @@ namespace Lumen.Level
         public int Stalkers, Moths, Devourers;
         public float EnemySpeedMultiplier;
         public float ExtraLoopChance;
+        public Biome Biome;
+        public int Items;
+        public int Doors, WaterPools, WindZones; // the active biome's hazard
 
         /// <summary>
         /// The whole difficulty curve. Map size and objectives cap early (so floors stay
@@ -42,8 +45,17 @@ namespace Lumen.Level
                 Devourers = floor >= 3 ? 1 + (floor - 3) / 4 : 0,
                 EnemySpeedMultiplier = Mathf.Min(1f + 0.03f * Mathf.Max(0, floor - 8), 1.3f),
                 ExtraLoopChance = 0.35f,
+                Biome = BiomeFor(floor),
+                Items = Mathf.Min(1 + floor / 3, 3),
+                // Hazards ramp inside each biome's three floors; floor 1 stays clean.
+                Doors = BiomeFor(floor) == Biome.Crypts && floor >= 2 ? Mathf.Min(1 + (floor - 1) % 3 + floor / 9, 5) : 0,
+                WaterPools = BiomeFor(floor) == Biome.Flooded ? Mathf.Min(3 + (floor - 1) % 3 * 2 + floor / 9, 9) : 0,
+                WindZones = BiomeFor(floor) == Biome.Roots ? Mathf.Min(2 + (floor - 1) % 3 + floor / 9, 6) : 0,
             };
         }
+
+        /// <summary>Crypts (1-3), Flooded caverns (4-6), Roots (7-9), then the cycle repeats harder.</summary>
+        public static Biome BiomeFor(int floor) => (Biome)((Mathf.Max(1, floor) - 1) / 3 % 3);
 
         /// <summary>Each floor of a run gets its own deterministic seed, so whole runs are reproducible.</summary>
         public static int SeedFor(int runSeed, int floor) => unchecked(runSeed * 7919 + floor * 104729);
@@ -75,6 +87,8 @@ namespace Lumen.Level
             ConnectRooms(map, s, rng);
 
             PlaceObjectives(map, s, rng);
+            map.Biome = s.Biome;
+            PlaceHazards(map, s, rng);
             return map;
         }
 
@@ -246,6 +260,8 @@ namespace Lumen.Level
             Spawn(EnemyKind.Moth, s.Moths);
             Spawn(EnemyKind.Devourer, s.Devourers);
 
+            PlaceItems(map, s, rng, used);
+
             // Cosmetic props (bones, rubble) on floor cells next to walls.
             for (int i = idx; i < floor.Count && map.Decorations.Count < map.Rooms.Count * 3; i++)
             {
@@ -254,6 +270,111 @@ namespace Lumen.Level
                 if (map.IsWall(c.x, c.y + 1) || map.IsWall(c.x - 1, c.y) || map.IsWall(c.x + 1, c.y))
                     map.Decorations.Add(c);
             }
+        }
+
+        // ------------------------------------------------------------------ items & hazards
+
+        static void PlaceItems(DungeonMap map, FloorSettings s, System.Random rng, HashSet<Vector2Int> used)
+        {
+            for (int i = 0, tries = 0; i < s.Items && tries < 200; tries++)
+            {
+                if (map.Rooms.Count < 2) return;
+                var r = map.Rooms[1 + rng.Next(map.Rooms.Count - 1)];
+                var c = new Vector2Int(r.x + 1 + rng.Next(Mathf.Max(1, r.width - 2)), r.y + 1 + rng.Next(Mathf.Max(1, r.height - 2)));
+                if (used.Contains(c) || !map.IsFloor(c) || NearAnyBrazier(map, c, 3f)) continue;
+                double roll = rng.NextDouble();
+                ItemKind kind = roll < 0.3 ? ItemKind.Lantern : roll < 0.55 ? ItemKind.Lure : roll < 0.85 ? ItemKind.Oil : ItemKind.Map;
+                map.Items.Add(new ItemSpawn(kind, c));
+                used.Add(c);
+                i++;
+            }
+        }
+
+        static void PlaceHazards(DungeonMap map, FloorSettings s, System.Random rng)
+        {
+            var reserved = new HashSet<Vector2Int>(map.Braziers) { map.PlayerSpawn, map.Exit };
+            foreach (var it in map.Items) reserved.Add(it.Cell);
+
+            // Water: blobs grown inside rooms (never the start room, never on objectives).
+            for (int i = 0, tries = 0; i < s.WaterPools && tries < 60; tries++)
+            {
+                if (map.Rooms.Count < 2) break;
+                var r = map.Rooms[1 + rng.Next(map.Rooms.Count - 1)];
+                var seed = new Vector2Int(r.x + rng.Next(r.width), r.y + rng.Next(r.height));
+                int radius = 2 + rng.Next(2);
+                for (int dx = -radius; dx <= radius; dx++)
+                    for (int dy = -radius; dy <= radius; dy++)
+                    {
+                        var c = seed + new Vector2Int(dx, dy);
+                        float d = new Vector2(dx, dy).magnitude + (float)rng.NextDouble() * 0.9f;
+                        if (d <= radius && map.IsFloor(c) && !reserved.Contains(c)) map.Water[c.x, c.y] = true;
+                    }
+                i++;
+            }
+
+            // Doors: 2-wide doorways where a corridor meets a room side.
+            var doorways = new List<RectInt>();
+            foreach (var r in map.Rooms)
+            {
+                for (int y = r.yMin; y < r.yMax - 1; y++)
+                {
+                    TryDoorway(map, new RectInt(r.xMin - 1, y, 1, 2), vertical: true, doorways);
+                    TryDoorway(map, new RectInt(r.xMax, y, 1, 2), vertical: true, doorways);
+                }
+                for (int x = r.xMin; x < r.xMax - 1; x++)
+                {
+                    TryDoorway(map, new RectInt(x, r.yMin - 1, 2, 1), vertical: false, doorways);
+                    TryDoorway(map, new RectInt(x, r.yMax, 2, 1), vertical: false, doorways);
+                }
+            }
+            Shuffle(doorways, rng);
+            foreach (var d in doorways)
+            {
+                if (map.Doors.Count >= s.Doors) break;
+                bool clash = false;
+                foreach (var other in map.Doors) if (Vector2Int.Distance(other.Cells.position, d.position) < 4f) clash = true;
+                foreach (var c in d.allPositionsWithin) if (reserved.Contains(c)) clash = true;
+                if (!clash) map.Doors.Add(new DoorSpawn(d));
+            }
+
+            // Wind: straight corridor stretches (floor cells outside every room).
+            for (int i = 0, tries = 0; i < s.WindZones && tries < 300; tries++)
+            {
+                var c = new Vector2Int(rng.Next(map.Width), rng.Next(map.Height));
+                if (!map.IsFloor(c) || InAnyRoom(map, c)) continue;
+                bool horizontal = map.IsFloor(c.x + 1, c.y) && map.IsFloor(c.x + 2, c.y) && !InAnyRoom(map, new Vector2Int(c.x + 3, c.y));
+                bool vertical = map.IsFloor(c.x, c.y + 1) && map.IsFloor(c.x, c.y + 2) && !InAnyRoom(map, new Vector2Int(c.x, c.y + 3));
+                if (!horizontal && !vertical) continue;
+                var rect = horizontal ? new RectInt(c.x, c.y - 1, 4, 3) : new RectInt(c.x - 1, c.y, 3, 4);
+                var dir = horizontal ? new Vector2Int(rng.Next(2) == 0 ? 1 : -1, 0) : new Vector2Int(0, rng.Next(2) == 0 ? 1 : -1);
+                bool overlaps = false;
+                foreach (var w in map.Wind) if (w.Cells.Overlaps(rect)) overlaps = true;
+                if (overlaps) continue;
+                map.Wind.Add(new WindSpawn(rect, dir));
+                i++;
+            }
+        }
+
+        static void TryDoorway(DungeonMap map, RectInt cells, bool vertical, List<RectInt> into)
+        {
+            foreach (var c in cells.allPositionsWithin) if (!map.IsFloor(c)) return;
+            // Walls on both sides of the opening, so the gate really closes the passage.
+            if (vertical && (!map.IsWall(cells.x, cells.yMin - 1) || !map.IsWall(cells.x, cells.yMax))) return;
+            if (!vertical && (!map.IsWall(cells.xMin - 1, cells.y) || !map.IsWall(cells.xMax, cells.y))) return;
+            into.Add(cells);
+        }
+
+        static bool InAnyRoom(DungeonMap map, Vector2Int c)
+        {
+            foreach (var r in map.Rooms) if (r.Contains(c)) return true;
+            return false;
+        }
+
+        static bool NearAnyBrazier(DungeonMap map, Vector2Int c, float distance)
+        {
+            foreach (var b in map.Braziers)
+                if (Vector2Int.Distance(b, c) < distance) return true;
+            return false;
         }
 
         static bool NearAnyBrazier(DungeonMap map, Vector2Int c)

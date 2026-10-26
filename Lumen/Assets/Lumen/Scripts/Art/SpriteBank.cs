@@ -26,6 +26,10 @@ namespace Lumen.Art
         public static Sprite CandleFlame { get; private set; }
         public static Sprite Arrow { get; private set; }
         public static Sprite ExitMarker { get; private set; }
+        public static Sprite DoorVertical { get; private set; }
+        public static Sprite DoorHorizontal { get; private set; }
+        static Sprite[] items;
+        public static Sprite Item(Level.ItemKind kind) => items[(int)kind];
         public static Sprite[] Ember { get; private set; }
         public static Sprite PortalClosed { get; private set; }
         public static Sprite[] PortalOpen { get; private set; }
@@ -66,6 +70,15 @@ namespace Lumen.Art
             CandleFlame = Make(CandleFlameCanvas(), "candle_flame", new Vector2(0.5f, 0.5f));
             Arrow = Make(ArrowCanvas(), "arrow", new Vector2(0.5f, 0.5f));
             ExitMarker = Make(DiamondCanvas(), "exit_marker", new Vector2(0.5f, 0.5f));
+            DoorVertical = Make(DoorCanvas(vertical: true), "door_v", new Vector2(0.5f, 0.5f));
+            DoorHorizontal = Make(DoorCanvas(vertical: false), "door_h", new Vector2(0.5f, 0.5f));
+            items = new[]
+            {
+                Make(LanternCanvas(), "item_lantern", new Vector2(0.5f, 0.5f)),
+                Make(LureCanvas(), "item_lure", new Vector2(0.5f, 0.5f)),
+                Make(OilCanvas(), "item_oil", new Vector2(0.5f, 0.5f)),
+                Make(MapCanvas(), "item_map", new Vector2(0.5f, 0.5f)),
+            };
             Ember = Frames(4, i => EmberFrame(i), "ember", new Vector2(0.5f, 0.5f));
             PortalClosed = Make(PortalCanvas(false, 0), "portal_closed", new Vector2(0.5f, 0.5f));
             PortalOpen = Frames(4, i => PortalCanvas(true, i), "portal_open", new Vector2(0.5f, 0.5f));
@@ -303,6 +316,74 @@ namespace Lumen.Art
                 int half = (11 - x) / 2;
                 for (int y = 6 - half; y <= 6 + half; y++) p.Set(x, y, Color.white);
             }
+            p.Outline(new Color32(10, 8, 14, 255));
+            return p;
+        }
+
+        // ---------------------------------------------------------------- Doors & items
+        // Iron portcullis spanning a 2-tile doorway: posts at the ends, bars across.
+        static PixelCanvas DoorCanvas(bool vertical)
+        {
+            int w = vertical ? 16 : 32, h = vertical ? 32 : 16;
+            var p = new PixelCanvas(w, h);
+            for (int x = 0; x < w; x++)
+                for (int y = 0; y < h; y++)
+                {
+                    int along = vertical ? y : x, across = vertical ? x : y, len = vertical ? h : w;
+                    bool post = along < 2 || along >= len - 2;
+                    bool bar = along % 5 == 2 && across >= 5 && across <= 10;
+                    bool rail = (across == 5 || across == 10) && !post;
+                    if (post && across >= 4 && across <= 11) p.Set(x, y, Palette.StoneLight);
+                    else if (bar || rail) p.Set(x, y, along % 5 == 2 ? Palette.Stone : Palette.Metal);
+                }
+            p.Outline(new Color32(10, 8, 14, 255));
+            return p;
+        }
+
+        static PixelCanvas LanternCanvas()
+        {
+            var p = new PixelCanvas(16, 16);
+            p.Rect(6, 13, 4, 1, Palette.Metal);          // handle
+            p.Rect(5, 11, 6, 2, Palette.StoneDark);      // cap
+            p.Rect(5, 4, 6, 7, new Color32(255, 220, 140, 160)); // glass
+            p.Rect(7, 5, 2, 4, Palette.FireYellow);      // flame inside
+            p.Set(7, 8, Palette.FireWhite);
+            p.Rect(5, 3, 6, 1, Palette.StoneDark);       // base
+            p.Rect(4, 4, 1, 7, Palette.Metal); p.Rect(11, 4, 1, 7, Palette.Metal); // frame
+            p.Outline(new Color32(10, 8, 14, 255));
+            return p;
+        }
+
+        static PixelCanvas LureCanvas()
+        {
+            var p = new PixelCanvas(16, 16);
+            p.Ellipse(8, 8, 3f, 3f, Palette.FireYellow);   // a glowing seed of light
+            p.Ellipse(8, 8, 1.6f, 1.6f, Palette.FireWhite);
+            p.Set(8, 12, Palette.FireOrange); p.Set(8, 4, Palette.FireOrange);
+            p.Set(4, 8, Palette.FireOrange); p.Set(12, 8, Palette.FireOrange);
+            return p;
+        }
+
+        static PixelCanvas OilCanvas()
+        {
+            var p = new PixelCanvas(16, 16);
+            p.Rect(7, 12, 2, 2, Palette.BoneDark);         // cork
+            p.Rect(6, 10, 4, 2, new Color32(160, 110, 60, 255)); // neck
+            p.Ellipse(8, 6, 4f, 4f, new Color32(120, 70, 30, 255)); // flask
+            p.Ellipse(8, 5, 2.6f, 2.4f, Palette.FireOrange); // oil glinting
+            p.Set(6, 7, Palette.FireWhite);
+            p.Outline(new Color32(10, 8, 14, 255));
+            return p;
+        }
+
+        static PixelCanvas MapCanvas()
+        {
+            var p = new PixelCanvas(16, 16);
+            p.Rect(3, 4, 10, 8, Palette.Bone);              // parchment
+            p.Rect(3, 4, 10, 1, Palette.BoneDark);
+            p.Rect(3, 11, 10, 1, Palette.BoneDark);
+            p.Set(5, 9, Palette.FireRed); p.Set(10, 6, Palette.FireRed); p.Set(8, 8, Palette.FireRed); // marked fires
+            for (int x = 5; x < 10; x++) p.Set(x, 7 + (x % 2), Palette.StoneDark); // a path
             p.Outline(new Color32(10, 8, 14, 255));
             return p;
         }

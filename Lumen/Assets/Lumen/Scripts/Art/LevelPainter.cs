@@ -14,8 +14,11 @@ namespace Lumen.Art
 
         enum WallKind { None, Face, Rim, Void }
 
+        static BiomePalette P = BiomePalette.Crypts; // palette of the map being painted
+
         public static (Texture2D albedo, Texture2D normal) Paint(DungeonMap map, int seed)
         {
+            P = BiomePalette.For(map.Biome);
             int w = map.Width * T, h = map.Height * T;
             var albedo = new PixelCanvas(w, h);
             var normal = new PixelCanvas(w, h);
@@ -53,6 +56,7 @@ namespace Lumen.Art
         // ------------------------------------------------------------------ floor
         static void PaintFloor(DungeonMap map, PixelCanvas a, PixelCanvas n, int tx, int ty, int seed)
         {
+            if (map.Water[tx, ty]) { PaintWater(map, a, n, tx, ty, seed); return; }
             float variant = Noise.Hash(tx, ty, seed);
             bool quartered = variant > 0.62f;
             bool wallN = map.IsWall(tx, ty + 1), wallW = map.IsWall(tx - 1, ty), wallE = map.IsWall(tx + 1, ty);
@@ -69,29 +73,29 @@ namespace Lumen.Art
                     Color32 nn = Flat;
                     if (lx == 0 || ly == 0)
                     {
-                        c = Palette.FloorDark; // mortar groove
+                        c = P.FloorDark; // mortar groove
                     }
                     else
                     {
                         float grain = Noise.Fbm(wx * 0.35f, wy * 0.35f, seed, 2) - 0.5f;
                         float t = Mathf.Clamp01(0.5f + grain * 0.6f + slabTint);
-                        c = Palette.Lerp(Palette.FloorDark, Palette.FloorLight, t);
-                        if (lx == 1) { nn = N(-0.45f, 0, 1); c = Palette.Lerp(c, Palette.FloorLight, 0.35f); }
+                        c = Palette.Lerp(P.FloorDark, P.FloorLight, t);
+                        if (lx == 1) { nn = N(-0.45f, 0, 1); c = Palette.Lerp(c, P.FloorLight, 0.35f); }
                         else if (lx == size - 1) nn = N(0.45f, 0, 1);
-                        if (ly == size - 1) { nn = N(0, 0.45f, 1); c = Palette.Lerp(c, Palette.FloorLight, 0.35f); }
+                        if (ly == size - 1) { nn = N(0, 0.45f, 1); c = Palette.Lerp(c, P.FloorLight, 0.35f); }
                         else if (ly == 1) nn = N(0, -0.45f, 1);
                     }
 
                     // Moss creeping from walls.
                     if ((wallN || wallW || wallE) && Noise.Fbm(wx * 0.15f, wy * 0.15f, seed + 9) > 0.62f)
-                        c = Palette.Lerp(c, Palette.Moss, 0.55f);
+                        c = Palette.Lerp(c, P.Moss, 0.55f);
 
                     // Ambient occlusion: walls above cast a soft contact shadow (3/4 view).
                     float ao = 1f;
                     if (wallN) ao *= Mathf.Lerp(0.45f, 1f, Mathf.Clamp01((T - 1 - py) / 6f));
                     if (wallW) ao *= Mathf.Lerp(0.6f, 1f, Mathf.Clamp01(px / 3f));
                     if (wallE) ao *= Mathf.Lerp(0.6f, 1f, Mathf.Clamp01((T - 1 - px) / 3f));
-                    c = Palette.Lerp(Palette.Void, c, ao);
+                    c = Palette.Lerp(P.Void, c, ao);
 
                     a.Set(wx, wy, c);
                     n.Set(wx, wy, nn);
@@ -107,7 +111,7 @@ namespace Lumen.Art
                 for (int i = 0; i < len; i++)
                 {
                     int cx = tx * T + x, cy = ty * T + y;
-                    a.Set(cx, cy, Palette.Lerp(a.Get(cx, cy), Palette.FloorCrack, 0.7f));
+                    a.Set(cx, cy, Palette.Lerp(a.Get(cx, cy), P.FloorCrack, 0.7f));
                     float r = Noise.Hash(tx * 31 + i, ty * 17 + i, seed + 7);
                     if (r < 0.4f) y--;
                     else if (r < 0.6f) x++;
@@ -117,6 +121,26 @@ namespace Lumen.Art
                     y = Mathf.Clamp(y, 1, T - 2);
                 }
             }
+        }
+
+        // ------------------------------------------------------------------ water
+        static void PaintWater(DungeonMap map, PixelCanvas a, PixelCanvas n, int tx, int ty, int seed)
+        {
+            bool shoreN = !map.IsWater(new Vector2Int(tx, ty + 1)), shoreS = !map.IsWater(new Vector2Int(tx, ty - 1));
+            bool shoreW = !map.IsWater(new Vector2Int(tx - 1, ty)), shoreE = !map.IsWater(new Vector2Int(tx + 1, ty));
+            for (int px = 0; px < T; px++)
+                for (int py = 0; py < T; py++)
+                {
+                    int wx = tx * T + px, wy = ty * T + py;
+                    // Horizontal ripple bands, broken up by noise.
+                    float ripple = Mathf.Sin(wy * 0.9f + Noise.Value(wx * 0.15f, wy * 0.15f, seed + 21) * 6f);
+                    var c = ripple > 0.75f ? P.WaterLight : P.Water;
+                    // A pale lip where the water meets dry stone.
+                    bool edge = (shoreN && py == T - 1) || (shoreS && py == 0) || (shoreW && px == 0) || (shoreE && px == T - 1);
+                    if (edge) c = Palette.Lerp(P.WaterLight, P.FloorLight, 0.5f);
+                    a.Set(wx, wy, c);
+                    n.Set(wx, wy, ripple > 0.75f ? N(0, 0.25f, 1) : Flat);
+                }
         }
 
         // ------------------------------------------------------------------ wall face (bricks)
@@ -132,7 +156,7 @@ namespace Lumen.Art
                     if (py >= T - 3)
                     {
                         // Top lip of the wall, catches light from above.
-                        c = py == T - 1 ? Palette.WallRim : Palette.BrickLight;
+                        c = py == T - 1 ? P.WallRim : P.BrickLight;
                         nn = N(0, 0.2f, 1);
                     }
                     else
@@ -143,20 +167,20 @@ namespace Lumen.Art
                         int by = py % 4;
                         if (by == 3 || bx == 0)
                         {
-                            c = Palette.Mortar;
+                            c = P.Mortar;
                             nn = N(0, -0.6f, 0.8f);
                         }
                         else
                         {
                             float brickTone = Noise.Hash((wx + offset) / 8, ty * 4 + row, seed + 11);
-                            c = Palette.Lerp(Palette.BrickDark, Palette.Brick, 0.4f + brickTone * 0.6f);
-                            if (by == 2) c = Palette.Lerp(c, Palette.BrickLight, 0.5f);
+                            c = Palette.Lerp(P.BrickDark, P.Brick, 0.4f + brickTone * 0.6f);
+                            if (by == 2) c = Palette.Lerp(c, P.BrickLight, 0.5f);
                             nn = by == 2 ? N(0, -0.25f, 1f) : N(0, -0.85f, 0.55f);
                             if (bx == 1) nn = N(-0.4f, -0.7f, 0.6f);
                             if (bx == 7) nn = N(0.4f, -0.7f, 0.6f);
                         }
                         // Darker at the base where it meets the floor.
-                        if (py < 2) c = Palette.Lerp(c, Palette.Void, 0.45f);
+                        if (py < 2) c = Palette.Lerp(c, P.Void, 0.45f);
                     }
                     a.Set(wx, wy, c);
                     n.Set(wx, wy, nn);
@@ -175,12 +199,12 @@ namespace Lumen.Art
                 for (int py = 0; py < T; py++)
                 {
                     int wx = tx * T + px, wy = ty * T + py;
-                    Color32 c = deep ? Palette.Void : Palette.WallTop;
+                    Color32 c = deep ? P.Void : P.WallTop;
                     Color32 nn = Flat;
-                    if (!deep && Noise.Hash(wx, wy, 99) > 0.93f) c = Palette.Lerp(c, Palette.WallRim, 0.4f);
-                    if (edgeW && px < 2) { c = Palette.WallRim; nn = N(-0.7f, 0, 0.7f); }
-                    if (edgeE && px > T - 3) { c = Palette.WallRim; nn = N(0.7f, 0, 0.7f); }
-                    if (edgeN && py > T - 3) { c = Palette.WallRim; nn = N(0, 0.7f, 0.7f); }
+                    if (!deep && Noise.Hash(wx, wy, 99) > 0.93f) c = Palette.Lerp(c, P.WallRim, 0.4f);
+                    if (edgeW && px < 2) { c = P.WallRim; nn = N(-0.7f, 0, 0.7f); }
+                    if (edgeE && px > T - 3) { c = P.WallRim; nn = N(0.7f, 0, 0.7f); }
+                    if (edgeN && py > T - 3) { c = P.WallRim; nn = N(0, 0.7f, 0.7f); }
                     a.Set(wx, wy, c);
                     n.Set(wx, wy, nn);
                 }

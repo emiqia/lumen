@@ -1,0 +1,22 @@
+# Unity
+Lumen/[Ll]ibrary/
+Lumen/[Tt]emp/
+Lumen/[Oo]bj/
+Lumen/[Ll]ogs/
+Lumen/[Uu]ser[Ss]ettings/
+Lumen/[Bb]uilds/
+Lumen/*.csproj
+Lumen/*.sln
+Lumen/.vs/
+Lumen/.idea/
+*_BurstDebugInformation_DoNotShip/
+
+# Local scratch output
+_staging/
+_shots/
+_diag/
+_*.log
+_tests.xml
+playtest/
+Lumen/*.slnx
+Lumen/.vscode/

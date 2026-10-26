@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45f78190d4311c9e0982d051bf5ff7f3, type: 3}
+  m_Name: GameTuning
+  m_EditorClassIdentifier: 
+  moveSpeed: 4.2
+  dimMoveSpeed: 2.9
+  acceleration: 40
+  maxFuel: 100
+  drainBright: 1.5
+  drainDim: 0.55
+  brazierRefuelPerSecond: 22
+  emberFuel: 12
+  hitInvulnerability: 1.1
+  lowFuelWarning: 25
+  minLightRadius: 3.2
+  maxLightRadius: 7.5
+  dimLightRadius: 2.2
+  burnRadiusFactor: 0.45
+  flareCost: 18
+  flareRadius: 5.5
+  flareCooldown: 1.1
+  brazierLightRadius: 5
+  brazierSafeRadius: 3.2
+  stalkerWanderSpeed: 1.4
+  stalkerChaseSpeed: 3.3
+  stalkerDamage: 22
+  stalkerBurnTime: 1.4
+  mothSpeed: 2.6
+  mothDiveSpeed: 7.5
+  mothDamage: 10
+  devourerSpeed: 1.25
+  devourerDamage: 30
+  devourerFlaresToKill: 3
+  devourerExtinguishTime: 2.5
+  darknessSpawnInterval: 40
+  scoreEmber: 10
+  scoreBrazier: 50
+  scoreStalker: 25
+  scoreMoth: 15
+  scoreDevourer: 150
+  scoreFloorBase: 100
+  floorParTime: 75
+  scorePerSecondUnderPar: 4

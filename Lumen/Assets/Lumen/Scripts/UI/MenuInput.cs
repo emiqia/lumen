@@ -27,7 +27,8 @@ namespace Lumen.UI
                 pause: K(k => k.escapeKey) || P(p => p.startButton) || P(p => p.selectButton),
                 language: K(k => k.lKey),
                 mainMenu: K(k => k.qKey) || P(p => p.buttonNorth),
-                retry: K(k => k.rKey) || P(p => p.buttonSouth),
+                // Gamepad retries with Start (Confirm): A is the flare and gets mashed while dying.
+                retry: K(k => k.rKey),
                 shake: K(k => k.tKey) || P(p => p.leftShoulder),
                 brightness: K(k => k.bKey) || P(p => p.rightShoulder));
         }

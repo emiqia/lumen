@@ -36,6 +36,7 @@ namespace Lumen.Core
         public LevelInstance Level => level;
         public PlayerFlame Player => player;
         public RunTelemetry Telemetry { get; private set; }
+        public bool GameOverVisible => screens.GameOverVisible;
 
         /// <summary>Set by automated playtests: an AI drives the player instead of the keyboard.</summary>
         public System.Func<IPlayerInput> InputOverride { get; set; }
@@ -54,6 +55,8 @@ namespace Lumen.Core
         LevelInstance level;
         PlayerFlame player;
         int runSeed;
+        int flowVersion;       // bumped on every run start / title entry, so stale coroutines can tell
+        bool gameOverShown;    // game-over input is ignored until the screen is actually up
         static float hitStopUntil;
 
         static GameTuning Tuning => GameTuning.I;
@@ -137,6 +140,7 @@ namespace Lumen.Core
 
         public void EnterTitle()
         {
+            flowVersion++;
             Current = State.Title;
             Time.timeScale = 1f;
             score.Counting = false;
@@ -151,6 +155,7 @@ namespace Lumen.Core
 
         public void StartRun(int seed = -1)
         {
+            flowVersion++;
             runSeed = seed < 0 ? Random.Range(0, 999999) : seed;
             score.Reset();
             score.Counting = false; // starts counting once floor 1 is loaded, not during the fade from the demo
@@ -263,6 +268,7 @@ namespace Lumen.Core
             }
             if (Current != State.Playing) return;
             Current = State.GameOver;
+            gameOverShown = false;
             score.Counting = false;
             Telemetry.EndRun(cause, Floor, Score, RunTime, FloorTime);
             // Only human runs count for records: bot playtests must never touch the player's save.
@@ -282,8 +288,12 @@ namespace Lumen.Core
 
         IEnumerator ShowGameOverDelayed(string cause, bool record)
         {
+            int version = flowVersion;
             yield return new WaitForSecondsRealtime(Headless ? 0.1f : 1.4f);
+            // The player may have left (title) or a playtest may have restarted meanwhile.
+            if (version != flowVersion || Current != State.GameOver) yield break;
             if (!Headless) screens.ShowGameOver(cause, Score, Floor, RunTime, record);
+            gameOverShown = true;
         }
 
         IEnumerator RestartAttract()
@@ -350,6 +360,8 @@ namespace Lumen.Core
                     else if (HandleSettings(input)) screens.RefreshPause();
                     break;
                 case State.GameOver:
+                    // Ignore input during the death beat: mashing the flare button must not skip the screen.
+                    if (!gameOverShown) break;
                     if (input.Retry || input.Confirm) { Sfx.I?.Blip(); StartRun(); }
                     else if (input.Back) EnterTitle();
                     break;

@@ -108,6 +108,7 @@ namespace Lumen.UI
         }
 
         public void HideGameOver() => gameOver.gameObject.SetActive(false);
+        public bool GameOverVisible => gameOver.gameObject.activeSelf;
 
         public void SetFade(float target, bool instant = false)
         {

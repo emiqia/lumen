@@ -15,12 +15,13 @@ namespace Lumen.Tests
     {
         GameObject root;
 
-        [TearDown]
-        public void TearDown()
+        [UnityTearDown]
+        public IEnumerator TearDown()
         {
             Time.timeScale = 1f;
             AudioListener.volume = 1f;
             if (root != null) Object.Destroy(root);
+            yield return null; // Destroy is deferred: let it happen before the next test boots a new game
         }
 
         [UnityTest, Timeout(180000)]

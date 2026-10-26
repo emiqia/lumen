@@ -19,21 +19,29 @@ Roguelite de sigilo top-down hecho en **Unity 6 (URP 2D)**. Sos una pequeña lla
 | Acción | Teclado | Gamepad |
 |---|---|---|
 | Mover | WASD / Flechas | Stick izquierdo |
-| Atenuar (sigilo) | Shift | LT / LB |
-| Destello | Espacio | A / RT |
-| Pausa | Esc | Start |
-| Temblor de pantalla / Brillo | T / B (título y pausa) | LB / RB |
+| Correr (gasta luz) | Shift | RT |
+| Atenuar (sigilo) | Ctrl | LT |
+| Destello | Espacio | A |
+| Usar señuelo | E | Y |
+| Pausa / menú | Esc | Start |
 
 ## Cómo se juega
 
 - **El combustible es todo:** vida, radio de luz y tiempo. Se consume solo, y más rápido con luz plena.
 - **Atenuar** te vuelve casi invisible y estira el combustible, pero te frena y no quemás a las sombras.
+- **Correr** te da velocidad (sirve para speedrun) a cambio de arder el triple y brillar más.
 - **El destello** quema todo lo que tengas cerca (radio 3.2) y aturde lo que esté más lejos (hasta 5.5). Cuesta 22 de luz.
 - **Los braseros** abren la salida y te recargan, pero cada uno tiene una reserva finita: acampar no es gratis.
 - **Tres enemigos:**
   - **Acechador:** te ve más de lejos cuanto más brillás.
   - **Polilla:** la atrae tu luz desde lejos.
-  - **Devorador:** inmune a la luz, apaga braseros y vuelve a sellar la salida.
+  - **Devorador:** inmune a la luz, apaga braseros y vuelve a sellar la salida. Se vence con 3 destellos, uno por vez; las marcas sobre su cabeza muestran cuándo se lo puede herir.
+- **Cada partida se arma distinta:**
+  - **4 dificultades:** Vela, Antorcha, Hoguera y Ceniza, con récord por cada una.
+  - **Bendiciones:** al bajar de piso elegís 1 de 3.
+  - **Objetos en el mapa:** farol, aceite, señuelo y mapa.
+  - **Biomas cada 3 pisos:** criptas con rejas, cavernas inundadas y raíces con viento.
+- **Tutorial en forma de libro** ilustrado antes de la primera partida, y consejos contextuales mientras jugás.
 
 | | |
 |---|---|
@@ -45,7 +53,9 @@ Roguelite de sigilo top-down hecho en **Unity 6 (URP 2D)**. Sos una pequeña lla
 - **Pipeline 100% procedural.** Generador de salas y pasillos (MST de Prim + loops extra), determinístico por semilla, con una semilla derivada por piso para que las runs completas se puedan reproducir. El nivel se hornea en una textura + **normal map** que `Light2D` usa para sombrear ladrillos y biseles. Los sprites, la fuente pixel y la síntesis de audio son código.
 - **Reglas en C# puro, testeables.** `FuelModel` (economía de combustible), `ScoreService` (eventos → puntaje), `DarknessSpawner` (presión anti-campeo) y `FloorSettings` (curva de dificultad) no dependen de la escena.
 - **Playtesting automatizado.** Un bot (`AutoPilot`) juega el build real a través de la misma interfaz `IPlayerInput` que el teclado. `-playtest N` corre N partidas a 8× y escribe telemetría (`report.json`: piso, causa de muerte, destellos, golpes por enemigo, etc.). Con `-shots` saca capturas y registra momentos destacados para cortar gifs. El mismo bot juega el *attract mode* del título.
-- **Tests:** 33 EditMode (generador, A*, greedy meshing, combustible, puntaje, presión, curva) y 1 PlayMode de humo que arranca el juego real y exige que el bot complete el piso 1 sin errores.
+- **Tests:** 57 EditMode y 4 PlayMode.
+  - EditMode cubre el generador, A*, greedy meshing, combustible, puntaje, presión, curva de dificultad, dificultades, bendiciones, biomas e ítems.
+  - PlayMode incluye una prueba de humo, que arranca el juego real y exige que el bot complete el piso 1 sin errores, y regresiones del flujo de Game Over.
 
 ## Arquitectura
 

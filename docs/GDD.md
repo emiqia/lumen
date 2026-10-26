@@ -29,12 +29,21 @@ Bajar de piso ← Salida se abre ← Todos los braseros encendidos
 | Acción | Teclado | Gamepad |
 |---|---|---|
 | Mover | WASD / Flechas | Stick izq. / D-pad |
-| Atenuar (sigilo) | Shift | LT / LB |
-| Destello | Espacio | A / RT |
-| Pausa | Esc | Start |
-| Idioma (título) | L | — |
-| Temblor de pantalla (título/pausa) | T | LB |
-| Brillo (título/pausa) | B | RB |
+| Correr (gasta luz) | Shift | RT |
+| Atenuar (sigilo) | Ctrl | LT |
+| Destello | Espacio | A |
+| Usar señuelo | E | Y |
+| Pausa / menú | Esc | Start |
+
+Los menús se navegan con flechas / D-pad y Enter / A. Brillo, temblor, modo daltónico, cronómetro, idioma, volumen de música y efectos y modo de pantalla están en **Opciones** (desde el título o la pausa).
+
+## Estructura de una partida
+
+1. **Título:** el logo y un menú (Jugar / Guía / Opciones / Salir), con una partida del bot de fondo.
+2. **Dificultad:** Vela, Antorcha, Hoguera o Ceniza (ver abajo), con el récord de cada una.
+3. **El libro:** antes de la primera partida se abre una guía de 10 páginas ilustradas que se pasan con las flechas. Se puede releer desde "Guía".
+4. **Pisos:** cada uno con nombre propio ("El Umbral", "Criptas del Polvo", "La Garganta" y después nombres generados por bioma).
+5. **Bendiciones:** al bajar elegís 1 de 3 mejoras que se acumulan toda la run.
 
 ## Mecánicas
 
@@ -63,8 +72,23 @@ Bajar de piso ← Salida se abre ← Todos los braseros encendidos
 - Apagados, las brasas del cuenco laten en rojo para que se reconozcan como objetivo. Una flecha en el borde de la pantalla apunta al brasero apagado más cercano (o a la salida, si está abierta).
 - Atraen a las Polillas, así que encender uno es también una forma de distraerlas.
 
+### Correr (Shift)
+- Velocidad x1.6, pero la llama arde **3 veces más rápido** y brilla un 20% más, así que los Acechadores te ven de más lejos.
+- Es la herramienta del speedrun (hay un cronómetro opcional en Opciones). No se puede correr atenuado.
+
 ### Brasas
 - Pickups flotantes: +12 de combustible y +10 de puntaje. Se acercan solas al jugador (imán).
+- Nunca aparecen a menos de 6 casillas de un brasero, porque ahí se desperdiciarían.
+
+### Objetos
+- **Farol:** absorbe el próximo golpe. Se lleva uno.
+- **Aceite:** el próximo destello es gratis. Hasta 2.
+- **Señuelo (E):** se tira hacia donde mirás. Brilla 7 s: las Polillas lo prefieren a todo y los Acechadores cercanos van a investigarlo. Hasta 2.
+- **Mapa:** marca en el borde de la pantalla todos los braseros apagados del piso.
+- Hay 1 objeto por piso, hasta 3 en pisos profundos.
+
+### Bendiciones
+Al completar un piso se ofrecen 3 de 11 (determinísticas por semilla). Ejemplos: Mecha larga (+20 de luz máxima), Destello barato (-25%), Sombra amiga (atenuar gasta 30% menos), Pulmones de fragua (correr gasta 35% menos) y Segunda chispa (renacés una vez, no se repite).
 
 ### Presión
 - Cada 40 s en un piso, la oscuridad hace nacer un Acechador nuevo lejos del jugador, **que sale ya buscando tu posición**.
@@ -76,7 +100,7 @@ Bajar de piso ← Salida se abre ← Todos los braseros encendidos
 |---|---|---|---|
 | **Acechador** | 1 | Deambula; si te ve (rango = 1.5 + 1.15 × tu radio de luz, con línea de visión) te persigue a 3.6, más rápido que vos atenuado. Pierde el rastro tras 3 s sin verte. | Atenuar antes de que te vea, tu luz plena lo quema de cerca (1.8 s), destello |
 | **Polilla** | 2 | Atraída por la luz a distancia (sin necesidad de línea de visión). Te orbita a 3 unidades y después se lanza en picada. Roba 14 de combustible, se aleja 2.5 s y vuelve. | Atenuar, encender braseros para distraerlas, destello |
-| **Devorador** | 3 | Lento, gigante e inmune a la luz. Va hacia los braseros encendidos y los apaga, lo que vuelve a sellar la salida. | 3 destellos en enfrentamientos separados, o ser rápido |
+| **Devorador** | 3 | Lento, gigante e inmune a la luz. Va hacia los braseros encendidos y los apaga, lo que vuelve a sellar la salida. Después de cada destello queda **5 s sin poder ser herido** y te carga enfurecido (más lento que vos). Si te golpea, se calma. | 3 destellos, uno por vez. Las **3 marcas** sobre su cabeza muestran cuántos faltan: oscuras y parpadeando = inmune; naranjas = pegale ahora |
 
 Los cuerpos de las sombras se dibujan con material *lit*: **solo se ven donde llega la luz**. Sus ojos son *unlit* y brillan en la oscuridad. Así ves ojos acechando en lo negro antes de ver el cuerpo.
 
@@ -95,6 +119,28 @@ Brasa 10 · Brasero 50 · Acechador 25 · Polilla 15 · Devorador 150 · Piso co
 
 El puntaje lo calcula `ScoreService` a partir de eventos: el gameplay nunca toca el puntaje directamente.
 
+## Biomas
+
+Cada 3 pisos cambia el lugar, con su paleta, su luz ambiente y su peligro. El ciclo se repite más difícil:
+
+| Pisos | Bioma | Peligro |
+|---|---|---|
+| 1–3 | **Criptas** | Rejas que se abren y cierran (7 s abiertas, 4 s cerradas, y avisan 1 s antes). Cerradas bloquean el paso, la luz y la visión. Desde el piso 2. |
+| 4–6 | **Cavernas inundadas** | Charcos de agua negra. Caminar es gratis, pero correr por el agua drena 9/s. |
+| 7–9 | **Raíces** | Pasillos con ráfagas periódicas (avisadas por hojas) que achican la luz al 45% y te empujan. |
+
+## Dificultades
+
+| | Vela | Antorcha | Hoguera | Ceniza |
+|---|---|---|---|---|
+| Drenaje de luz | x0.75 | x1 | x1.15 | x1.3 |
+| Velocidad de enemigos | x0.85 | x1 | x1.1 | x1.2 |
+| Daño recibido | x0.7 | x1 | x1.25 | x1.5 (el Devorador mata de un golpe) |
+| Reserva de braseros | x1.3 | x1 | x0.8 | x0.55 |
+| Vista de los Acechadores | x0.85 | x1 | x1.1 | x1.25 |
+
+Los récords se guardan por dificultad.
+
 ## Tutorial contextual
 
 Cada consejo aparece la primera vez que su situación ocurre en la run, no por reloj. Los urgentes se adelantan en la cola:
@@ -104,6 +150,9 @@ Cada consejo aparece la primera vez que su situación ocurre en la run, no por r
 - **Atenuar:** cuando un Acechador te ve, o cuando hay uno cerca.
 - **Destello:** cuando hay una sombra a menos de 4.5.
 - **Brasero seco:** cuando uno se queda sin reserva.
+- **Devorador:** la primera vez que hay uno cerca ("3 destellos, uno por vez").
+- **Correr:** si pasaron 20 s y nunca corriste.
+- **Señuelo:** cuando juntás uno.
 
 Si no viste un consejo en el piso 1, puede salir en el piso 2.
 
@@ -119,8 +168,8 @@ Si no viste un consejo en el piso 1, puede salir en el piso 2.
 
 ## Accesibilidad
 
-- Toggle de temblor de pantalla (T, en título y pausa).
-- Brillo en 5 pasos, del 80% al 180% (B, en título y pausa).
+- Todo en el menú de Opciones: temblor de pantalla, brillo (80% a 250%), volumen de música y de efectos por separado, ventana o pantalla completa y cronómetro.
+- **Modo daltónico:** los ojos rojo/verde pasan a magenta/cian. Además, siempre: el Acechador tiene ojos-ranura y la flecha de salida es un rombo, así que nunca se depende solo del color.
 - Español / inglés.
 - Soporte de gamepad.
 - Fuente pixel de alto contraste con sombra.

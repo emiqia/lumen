@@ -17,26 +17,36 @@ namespace Lumen.Level
         public int Braziers;
         public int Embers;
         public int Stalkers, Moths, Devourers;
+        public float EnemySpeedMultiplier;
         public float ExtraLoopChance;
 
+        /// <summary>
+        /// The whole difficulty curve. Map size and objectives cap early (so floors stay
+        /// navigable); enemy counts keep growing longer, and past floor 8 enemies speed up,
+        /// so the late game keeps tightening instead of plateauing.
+        /// </summary>
         public static FloorSettings ForFloor(int floor)
         {
             floor = Mathf.Max(1, floor);
             return new FloorSettings
             {
-                Width = Mathf.Min(40 + floor * 4, 76),
-                Height = Mathf.Min(30 + floor * 3, 56),
-                RoomCount = Mathf.Min(5 + floor, 13),
+                Width = Mathf.Min(40 + floor * 4, 68),
+                Height = Mathf.Min(30 + floor * 3, 50),
+                RoomCount = Mathf.Min(5 + floor, 12),
                 MinRoomSize = 5,
                 MaxRoomSize = 10,
                 Braziers = Mathf.Min(2 + (floor + 1) / 2, 7),
-                Embers = Mathf.Max(14 - floor, 6),
-                Stalkers = Mathf.Min(1 + floor, 9),
-                Moths = floor >= 2 ? Mathf.Min(floor - 1, 6) : 0,
-                Devourers = floor >= 3 ? (floor >= 6 ? 2 : 1) : 0,
+                Embers = Mathf.Max(13 - floor, 4),
+                Stalkers = Mathf.Min(1 + floor, 14),
+                Moths = floor >= 2 ? Mathf.Min(floor - 1, 8) : 0,
+                Devourers = floor >= 3 ? 1 + (floor - 3) / 4 : 0,
+                EnemySpeedMultiplier = Mathf.Min(1f + 0.03f * Mathf.Max(0, floor - 8), 1.3f),
                 ExtraLoopChance = 0.35f,
             };
         }
+
+        /// <summary>Each floor of a run gets its own deterministic seed, so whole runs are reproducible.</summary>
+        public static int SeedFor(int runSeed, int floor) => unchecked(runSeed * 7919 + floor * 104729);
     }
 
     /// <summary>
@@ -48,6 +58,8 @@ namespace Lumen.Level
     {
         const int Margin = 2;      // solid border around the map
         const int RoomPadding = 2; // keeps walls at least 2 tiles thick between rooms
+        /// <summary>Enemies never spawn closer than this many walking steps to the player.</summary>
+        public const int MinEnemySteps = 12;
 
         public static DungeonMap Generate(int seed, FloorSettings s)
         {
@@ -55,6 +67,8 @@ namespace Lumen.Level
             var map = new DungeonMap(s.Width, s.Height);
 
             PlaceRooms(map, s, rng);
+            if (map.Rooms.Count == 0) // pathological seed: guarantee a playable floor
+                map.Rooms.Add(new RectInt(map.Width / 2 - 4, map.Height / 2 - 4, 8, 8));
             foreach (var r in map.Rooms) Carve(map, r);
             ConnectRooms(map, s, rng);
 
@@ -190,10 +204,11 @@ namespace Lumen.Level
             for (int i = 0; i < braziers; i++)
             {
                 var r = map.Rooms[candidateRooms[i]];
-                // Offset from the center so the exit room keeps its portal clear.
+                // Random cell inside the room (one tile from its walls), never on top of the exit.
                 var cell = new Vector2Int(r.x + 1 + rng.Next(Mathf.Max(1, r.width - 2)), r.y + 1 + rng.Next(Mathf.Max(1, r.height - 2)));
                 if (used.Contains(cell) || Vector2Int.Distance(cell, map.Exit) < 2f)
                     cell = new Vector2Int(r.x + 1, r.yMax - 2);
+                if (used.Contains(cell) || Vector2Int.Distance(cell, map.Exit) < 2f) continue;
                 map.Braziers.Add(cell);
                 used.Add(cell);
             }
@@ -213,10 +228,10 @@ namespace Lumen.Level
                 i++;
             }
 
-            // Enemies: only in cells at least 12 steps away so the opening is safe.
+            // Enemies: only in cells far enough away that the opening is safe.
             var enemyCells = new List<Vector2Int>();
             foreach (var c in floor)
-                if (dist[c.x, c.y] >= 12 && !used.Contains(c)) enemyCells.Add(c);
+                if (dist[c.x, c.y] >= MinEnemySteps && !used.Contains(c)) enemyCells.Add(c);
             Shuffle(enemyCells, rng);
             int e = 0;
             void Spawn(EnemyKind kind, int count)

@@ -48,6 +48,13 @@ namespace Lumen.FX
             }
         }
 
+        /// <summary>A ring that expands to exactly <paramref name="radius"/> over its lifetime (accounts for drag).</summary>
+        public static void RingToRadius(Vector2 pos, int count, Color color, float radius, float life)
+        {
+            const float drag = 3f; // matches Spawn
+            Ring(pos, count, color, radius * drag / (1f - Mathf.Exp(-drag * life)), life);
+        }
+
         public static void Emit(Vector2 pos, Vector2 vel, Color color, float life, bool glow = true, float rise = 0f, float size = 1f)
         {
             if (I != null) I.Spawn(pos, vel, color, life, glow, rise, size);

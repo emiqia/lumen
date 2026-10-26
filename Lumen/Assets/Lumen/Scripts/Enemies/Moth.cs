@@ -1,4 +1,5 @@
 using Lumen.Art;
+using Lumen.Core;
 using Lumen.FX;
 using Lumen.Level;
 using Lumen.Lighting;
@@ -13,10 +14,9 @@ namespace Lumen.Enemies
     /// </summary>
     public class Moth : Shade
     {
-        enum State { Idle, Approach, Orbit, Dive, Recover }
+        enum State { Idle, Approach, Orbit, Dive, Recover, Retreat }
 
         public override EnemyKind Kind => EnemyKind.Moth;
-        protected override int ScoreValue => Tuning.scoreMoth;
 
         State state;
         float timer;
@@ -26,10 +26,18 @@ namespace Lumen.Enemies
 
         public static Moth Create(Vector2 pos, Transform parent)
         {
-            var m = Build<Moth>("Moth", pos, parent, SpriteBank.Moth, SpriteBank.MothGlow, 0.2f, 14f);
-            m.bodySprite.transform.localPosition = Vector3.up * 0.3f;
-            return m;
+            var moth = Build<Moth>("Moth", pos, parent, SpriteBank.Moth, SpriteBank.MothGlow, 0.2f, 14f,
+                new Color(1f, 0.95f, 0.8f, 0.18f), 0.2f);
+            // Pale wings catch any glimmer: drawn unlit but dimmed, so a moth reads as a faint pale
+            // flutter in the dark instead of a brown pebble (and you see it coming, as intended).
+            moth.bodySprite.sharedMaterial = LumenAssets.I.Unlit;
+            moth.bodySprite.color = new Color(0.55f, 0.53f, 0.5f);
+            return moth;
         }
+
+        // Hovers above its shadow and bobs while flying.
+        protected override Vector3 BodyOffset =>
+            new Vector3(0, 0.3f + Mathf.Sin(Time.time * 9f + GetInstanceID()) * 0.06f, 0);
 
         protected override void Think(float dt)
         {
@@ -48,7 +56,8 @@ namespace Lumen.Enemies
                     if (target == null) { state = State.Idle; break; }
                     Vector2 tp = target.position;
                     MoveTo(tp, Tuning.mothSpeed, 0.4f);
-                    if ((tp - pos).sqrMagnitude < 2.6f * 2.6f && LightField.LineOfSight(pos, tp))
+                    float engage = Tuning.mothOrbitRadius + 0.4f;
+                    if ((tp - pos).sqrMagnitude < engage * engage && LightField.LineOfSight(pos, tp))
                     {
                         state = State.Orbit;
                         timer = Random.Range(1.4f, 2.6f);
@@ -60,7 +69,7 @@ namespace Lumen.Enemies
                     if (target == null) { state = State.Idle; break; }
                     orbitAngle += dt * 2.4f;
                     Vector2 c = target.position;
-                    Vector2 orbitPos = c + new Vector2(Mathf.Cos(orbitAngle), Mathf.Sin(orbitAngle)) * 2.2f;
+                    Vector2 orbitPos = c + new Vector2(Mathf.Cos(orbitAngle), Mathf.Sin(orbitAngle)) * Tuning.mothOrbitRadius;
                     desiredVelocity = (orbitPos - pos) * 4f;
                     // Only dive at the player; braziers are just circled forever.
                     if (timer <= 0f && Player != null && target == Player.transform)
@@ -73,7 +82,7 @@ namespace Lumen.Enemies
                     break;
 
                 case State.Dive:
-                    desiredVelocity = diveDir * Tuning.mothDiveSpeed;
+                    desiredVelocity = diveDir * Tuning.mothDiveSpeed * speedMultiplier;
                     body.linearVelocity = desiredVelocity;
                     if (timer <= 0f) { state = State.Recover; timer = 1.2f; }
                     break;
@@ -82,10 +91,13 @@ namespace Lumen.Enemies
                     desiredVelocity = Vector2.Lerp(desiredVelocity, Vector2.zero, dt * 3f);
                     if (timer <= 0f) state = State.Approach;
                     break;
-            }
 
-            // Bob up and down while flying.
-            bodySprite.transform.localPosition = new Vector3(0, 0.3f + Mathf.Sin(Time.time * 9f + GetInstanceID()) * 0.06f, 0);
+                case State.Retreat:
+                    // Fed on your light: flutter away, then come back for more.
+                    if (Player != null) desiredVelocity = (pos - (Vector2)Player.transform.position).normalized * Tuning.mothSpeed * speedMultiplier;
+                    if (timer <= 0f) state = State.Approach;
+                    break;
+            }
         }
 
         Transform PickTarget()
@@ -116,7 +128,12 @@ namespace Lumen.Enemies
 
         protected override void OnTouchPlayer(PlayerFlame player)
         {
-            if (player.TakeHit(Tuning.mothDamage, Kind, transform.position)) Kill();
+            if (state == State.Retreat) return;
+            if (player.TakeHit(Tuning.mothDamage, Kind, transform.position))
+            {
+                state = State.Retreat;
+                timer = Tuning.mothRetreatTime;
+            }
         }
 
         protected override void OnCollisionStay2D(Collision2D c)

@@ -8,15 +8,16 @@ using Lumen.Lighting;
 using Lumen.Player;
 using Lumen.UI;
 using UnityEngine;
-using UnityEngine.InputSystem;
-using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 namespace Lumen.Core
 {
     /// <summary>
-    /// Composition root and game-flow state machine. The scene contains only this component;
-    /// camera, lighting, post-processing, audio, UI and levels are all assembled here.
+    /// Composition root and game-flow state machine. The scene contains only this component:
+    /// it builds the camera, post-processing, audio and UI, then owns the
+    /// Title → Playing ⇄ Paused → GameOver flow. Game rules live in the systems it wires up
+    /// (ScoreService, DarknessSpawner, TutorialDirector, PostFxController) and in the actors,
+    /// which talk back through <see cref="GameEvents"/>.
     /// </summary>
     public class GameManager : MonoBehaviour
     {
@@ -26,7 +27,7 @@ namespace Lumen.Core
 
         public State Current { get; private set; }
         public int Floor { get; private set; }
-        public int Score { get; private set; }
+        public int Score => score.Score;
         public float RunTime { get; private set; }
         public float FloorTime { get; private set; }
         public int BraziersLit { get; private set; }
@@ -36,21 +37,26 @@ namespace Lumen.Core
         public PlayerFlame Player => player;
         public RunTelemetry Telemetry { get; private set; }
 
-        /// <summary>Set by the playtest runner: an AI drives the player instead of the keyboard.</summary>
+        /// <summary>Set by automated playtests: an AI drives the player instead of the keyboard.</summary>
         public System.Func<IPlayerInput> InputOverride { get; set; }
+        /// <summary>Headless runs skip fades, UI and hit-stop, and simulate at <see cref="SimSpeed"/>.</summary>
         public bool Headless { get; set; }
+        public float SimSpeed { get; set; } = 1f;
 
         Camera cam;
         CameraRig rig;
         Hud hud;
         Screens screens;
+        PostFxController postFx;
+        ScoreService score;
+        DarknessSpawner darkness;
+        TutorialDirector tutorial;
         LevelInstance level;
         PlayerFlame player;
-        Vignette vignette;
-        float darknessTimer;
-        bool exitAnnounced;
-        int lastBraziersLit;
+        int runSeed;
         static float hitStopUntil;
+
+        static GameTuning Tuning => GameTuning.I;
 
         // ------------------------------------------------------------------ boot
 
@@ -65,20 +71,36 @@ namespace Lumen.Core
             PixelFont.Build();
 
             BuildCamera();
-            BuildPostProcessing();
-            LightFactory.Global(transform, Palette.AmbientLight, 0.07f);
+            postFx = PostFxController.Create(transform);
             new GameObject("Particles").AddComponent<PixelParticles>().transform.SetParent(transform);
             new GameObject("Audio").AddComponent<Sfx>().transform.SetParent(transform);
 
             var canvas = Ui.CreateCanvas("UI", 100);
             canvas.transform.SetParent(transform);
-            hud = Hud.Create(canvas.transform);
+            hud = Hud.Create(canvas.transform, cam);
             screens = Screens.Create(canvas.transform);
 
             Telemetry = new RunTelemetry();
+            score = new ScoreService(Tuning);
+            darkness = new DarknessSpawner(Tuning);
+            tutorial = new TutorialDirector(hud);
+
             GameEvents.PlayerDied += OnPlayerDied;
             GameEvents.ScoreGained += (amount, pos) => hud.ScorePopup(pos, amount);
-            GameEvents.BrazierExtinguished += p => hud.Announce("", Locale.Get("hud.relit"), 2f);
+            GameEvents.BrazierLit += _ => RecountBraziers();
+            GameEvents.BrazierExtinguished += _ =>
+            {
+                RecountBraziers();
+                if (Current == State.Playing) hud.Announce("", Locale.Get("hud.relit"), 2f);
+            };
+            GameEvents.PlayerReachedExit += CompleteFloor;
+        }
+
+        void OnDestroy()
+        {
+            score?.Dispose();
+            tutorial?.Dispose();
+            level?.Dispose();
         }
 
         void Start()
@@ -111,44 +133,17 @@ namespace Lumen.Core
             rig = go.AddComponent<CameraRig>();
         }
 
-        void BuildPostProcessing()
-        {
-            var go = new GameObject("PostFX");
-            go.transform.SetParent(transform);
-            var volume = go.AddComponent<Volume>();
-            volume.isGlobal = true;
-            var profile = ScriptableObject.CreateInstance<VolumeProfile>();
-            volume.sharedProfile = profile;
-
-            var bloom = profile.Add<Bloom>(true);
-            bloom.intensity.Override(1.1f);
-            bloom.threshold.Override(0.75f);
-            bloom.scatter.Override(0.65f);
-
-            vignette = profile.Add<Vignette>(true);
-            vignette.intensity.Override(0.38f);
-            vignette.smoothness.Override(0.5f);
-            vignette.color.Override(Color.black);
-
-            var grain = profile.Add<FilmGrain>(true);
-            grain.intensity.Override(0.18f);
-
-            var color = profile.Add<ColorAdjustments>(true);
-            color.contrast.Override(12f);
-            color.saturation.Override(6f);
-        }
-
         // ------------------------------------------------------------------ flow
 
         public void EnterTitle()
         {
             Current = State.Title;
             Time.timeScale = 1f;
+            score.Counting = false;
             screens.HideGameOver();
             screens.ShowPause(false);
             screens.ShowTitle(true);
             hud.gameObject.SetActive(false);
-            Floor = 2;
             // Attract mode: the autopilot plays a floor behind the title screen.
             LoadFloor(2, Random.Range(0, 99999), () => new AutoPilot());
             screens.SetFade(0f);
@@ -156,16 +151,19 @@ namespace Lumen.Core
 
         public void StartRun(int seed = -1)
         {
-            Score = 0;
+            runSeed = seed < 0 ? Random.Range(0, 999999) : seed;
+            score.Reset();
+            score.Counting = true;
             RunTime = 0f;
-            Telemetry.BeginRun();
+            Telemetry.BeginRun(runSeed);
+            tutorial.BeginRun();
             screens.ShowTitle(false);
             screens.HideGameOver();
             hud.gameObject.SetActive(!Headless);
-            StartCoroutine(TransitionTo(1, seed < 0 ? Random.Range(0, 999999) : seed, fadeOut: !Headless));
+            StartCoroutine(TransitionTo(1, fadeOut: !Headless));
         }
 
-        IEnumerator TransitionTo(int floor, int seed, bool fadeOut)
+        IEnumerator TransitionTo(int floor, bool fadeOut)
         {
             Current = State.Transition;
             if (fadeOut)
@@ -174,14 +172,14 @@ namespace Lumen.Core
                 while (!screens.FadeDone) yield return null;
             }
 
-            float carriedFuel = player != null && player.IsAlive && floor > 1 ? player.Fuel : GameTuning.I.maxFuel;
-            LoadFloor(floor, seed, InputOverride);
-            // Fuel carries over between floors (with a small bonus), making efficiency matter.
-            player.SetFuel(Mathf.Max(carriedFuel + 25f, 50f));
+            float carried = player != null && player.IsAlive && floor > 1 ? player.Fuel : Tuning.maxFuel;
+            LoadFloor(floor, FloorSettings.SeedFor(runSeed, floor), InputOverride);
+            // Fuel carries over between floors with a small bonus, so efficiency matters.
+            player.SetFuel(FuelModel.CarryToNextFloor(carried, Tuning.floorCarryBonus, Tuning.floorCarryMinimum, Tuning.maxFuel));
 
             hud.ClearTransient();
             hud.Announce(Locale.Get("floor.enter") + " " + floor, IntroFor(floor), 2.8f);
-            if (floor == 1) StartCoroutine(Tutorial());
+            tutorial.BeginFloor();
             GameEvents.RaiseFloorStarted(floor);
             Telemetry.BeginFloor(floor);
 
@@ -196,32 +194,19 @@ namespace Lumen.Core
             return "";
         }
 
-        IEnumerator Tutorial()
-        {
-            string[] keys = { "tut.move", "tut.brazier", "tut.fuel", "tut.dim", "tut.flare" };
-            yield return new WaitForSeconds(2.5f);
-            foreach (var k in keys)
-            {
-                if (Current != State.Playing || Floor != 1) yield break;
-                hud.Hint(Locale.Get(k), 5.5f);
-                yield return new WaitForSeconds(6f);
-            }
-        }
-
         void LoadFloor(int floor, int seed, System.Func<IPlayerInput> input)
         {
             UnloadLevel();
             Floor = floor;
             FloorTime = 0f;
-            BraziersLit = 0;
-            darknessTimer = 0f;
-            exitAnnounced = false;
+            darkness.Reset();
 
-            var map = DungeonGenerator.Generate(seed, FloorSettings.ForFloor(floor));
-            level = LevelBuilder.Build(map, seed, transform);
+            var settings = FloorSettings.ForFloor(floor);
+            var map = DungeonGenerator.Generate(seed, settings);
+            level = LevelBuilder.Build(map, settings, seed, transform);
             player = PlayerFlame.Create(DungeonMap.CellToWorld(map.PlayerSpawn));
             player.transform.SetParent(level.Root.transform);
-            if (input != null) player.Input = input();
+            if (input != null) player.Controls = input();
 
             rig.target = player.transform;
             rig.SnapTo(player.transform.position);
@@ -230,30 +215,42 @@ namespace Lumen.Core
             if (rig.bounds.width < 0 || rig.bounds.height < 0) rig.bounds = new Rect();
 
             hud.SetBrazierCount(level.Braziers.Count);
-            lastBraziersLit = 0;
+            BraziersLit = 0;
         }
 
         void UnloadLevel()
         {
             PixelParticles.I?.ClearAll();
-            if (level != null) Destroy(level.Root);
+            level?.Dispose();
             level = null;
             player = null;
             Shade.All.Clear();
             LightField.Clear();
         }
 
-        public void CompleteFloor()
+        /// <summary>Event-driven: recounted only when a brazier is lit or snuffed out.</summary>
+        void RecountBraziers()
+        {
+            if (level == null) return;
+            int before = BraziersLit;
+            BraziersLit = level.LitBraziers;
+            if (Current == State.Playing) Telemetry.OnBraziersChanged(BraziersLit, before);
+
+            bool allLit = BraziersLit == level.Braziers.Count;
+            bool wasOpen = level.Exit.IsOpen;
+            level.Exit.SetOpen(allLit);
+            if (allLit && !wasOpen && Current == State.Playing) hud.Announce("", Locale.Get("hud.exit"), 2.5f);
+        }
+
+        void CompleteFloor()
         {
             if (Current == State.Title) { EnterTitle(); return; } // attract-mode bot finished: new demo floor
             if (Current != State.Playing) return;
-            int bonus = GameTuning.I.scoreFloorBase * Floor +
-                        Mathf.Max(0, Mathf.RoundToInt((GameTuning.I.floorParTime - FloorTime) * GameTuning.I.scorePerSecondUnderPar));
-            AddScore(bonus, player.transform.position);
+            score.Add(score.FloorBonus(Floor, FloorTime), player.transform.position);
             Telemetry.EndFloor(FloorTime, player.Fuel);
             GameEvents.RaiseFloorCleared(Floor);
             player.Controllable = false;
-            StartCoroutine(TransitionTo(Floor + 1, Random.Range(0, 999999), fadeOut: !Headless));
+            StartCoroutine(TransitionTo(Floor + 1, fadeOut: !Headless));
         }
 
         void OnPlayerDied(string cause)
@@ -265,9 +262,20 @@ namespace Lumen.Core
             }
             if (Current != State.Playing) return;
             Current = State.GameOver;
-            Telemetry.EndRun(cause, Floor, Score, RunTime);
+            score.Counting = false;
+            Telemetry.EndRun(cause, Floor, Score, RunTime, FloorTime);
             bool record = !Headless && SaveData.SubmitRun(Score, Floor);
             StartCoroutine(ShowGameOverDelayed(cause, record));
+        }
+
+        /// <summary>Ends the current run without a death (used by playtests that hit their time limit).</summary>
+        public void AbortRun(string reason)
+        {
+            if (Current != State.Playing && Current != State.Transition) return;
+            StopAllCoroutines();
+            Current = State.GameOver;
+            score.Counting = false;
+            Telemetry.EndRun(reason, Floor, Score, RunTime, FloorTime, player != null ? player.Fuel : 0f);
         }
 
         IEnumerator ShowGameOverDelayed(string cause, bool record)
@@ -282,14 +290,6 @@ namespace Lumen.Core
             if (Current == State.Title) EnterTitle();
         }
 
-        public static void AddScore(int amount, Vector2 pos)
-        {
-            var gm = Instance;
-            if (gm == null || gm.Current != State.Playing) return;
-            gm.Score += amount;
-            GameEvents.RaiseScoreGained(amount, pos);
-        }
-
         public static void HitStop(float duration)
         {
             if (Instance == null || Instance.Headless) return;
@@ -300,108 +300,76 @@ namespace Lumen.Core
 
         void Update()
         {
-            HandleInput();
-            if (Current == State.Playing || Current == State.Title) TickFloor();
+            HandleInput(MenuInput.Read());
+            if (Current == State.Playing || Current == State.Title) TickFloor(Time.deltaTime);
 
             // Hit-stop: a few frames of near-freeze on impact for weight.
             if (Current == State.Playing)
-                Time.timeScale = Time.unscaledTime < hitStopUntil ? 0.05f : (Headless ? PlaytestRunner.SimSpeed : 1f);
+                Time.timeScale = Time.unscaledTime < hitStopUntil ? 0.05f : (Headless ? SimSpeed : 1f);
 
-            // Vignette tightens and turns red as the flame fades.
-            if (player != null && vignette != null)
+            if (player != null)
             {
-                float danger = Current == State.Playing ? Mathf.Clamp01(1f - player.Fuel / (GameTuning.I.lowFuelWarning * 1.6f)) : 0f;
-                vignette.intensity.value = Mathf.Lerp(0.38f, 0.55f, danger);
-                vignette.color.value = Color.Lerp(Color.black, new Color(0.35f, 0f, 0.02f), danger);
+                float danger = Current == State.Playing ? Mathf.Clamp01(1f - player.Fuel / (Tuning.lowFuelWarning * 1.6f)) : 0f;
+                postFx.SetDanger(danger);
                 Sfx.I?.SetDanger(player.IsAlive ? danger : 0f);
             }
         }
 
-        void TickFloor()
+        void TickFloor(float dt)
         {
             if (level == null || player == null) return;
-            float dt = Time.deltaTime;
             FloorTime += dt;
-            if (Current == State.Playing)
-            {
-                RunTime += dt;
-                Telemetry.Sample(player.Fuel, player.IsDimmed, dt);
-            }
+            if (Current != State.Playing) return;
 
-            int lit = 0;
-            foreach (var b in level.Braziers) if (b.IsLit) lit++;
-            BraziersLit = lit;
-            if (lit != lastBraziersLit) Telemetry.OnBraziersChanged(lit, lastBraziersLit);
-            lastBraziersLit = lit;
+            RunTime += dt;
+            Telemetry.Sample(player.Fuel, player.IsDimmed, dt);
+            if (!Headless) tutorial.Tick(dt, level, player);
 
-            bool allLit = lit == level.Braziers.Count;
-            level.Exit.SetOpen(allLit);
-            if (allLit && !exitAnnounced && Current == State.Playing)
-            {
-                exitAnnounced = true;
-                hud.Announce("", Locale.Get("hud.exit"), 2.5f);
-            }
-            if (!allLit) exitAnnounced = false;
-
-            // Pressure valve: lingering too long lets the darkness birth new stalkers.
-            darknessTimer += dt;
-            if (darknessTimer >= GameTuning.I.darknessSpawnInterval && player.IsAlive)
-            {
-                darknessTimer = 0f;
-                SpawnFromDarkness();
-            }
-        }
-
-        void SpawnFromDarkness()
-        {
-            var map = level.Map;
-            var dist = map.DistanceField(DungeonMap.WorldToCell(player.transform.position));
-            for (int i = 0; i < 40; i++)
-            {
-                var c = new Vector2Int(Random.Range(0, map.Width), Random.Range(0, map.Height));
-                if (dist[c.x, c.y] < 14) continue;
-                Vector2 p = DungeonMap.CellToWorld(c);
-                if (LightField.InBrazierSafeZone(p, out _)) continue;
-                LevelBuilder.SpawnEnemy(level, EnemyKind.Stalker, p);
+            if (player.IsAlive && darkness.Tick(dt, Floor) && darkness.Spawn(level, player.transform.position) != null)
                 Telemetry.DarknessSpawns++;
-                return;
-            }
         }
 
-        void HandleInput()
+        void HandleInput(MenuInput input)
         {
-            var kb = Keyboard.current;
-            var pad = Gamepad.current;
-            if (kb == null && pad == null) return;
-            bool confirm = (kb != null && (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame)) || (pad != null && pad.startButton.wasPressedThisFrame);
-            bool back = (kb != null && kb.escapeKey.wasPressedThisFrame) || (pad != null && pad.selectButton.wasPressedThisFrame);
-
             switch (Current)
             {
                 case State.Title:
-                    if (confirm) { Sfx.I?.Blip(); StartRun(); }
-                    else if (kb != null && kb.lKey.wasPressedThisFrame) { Locale.Toggle(); screens.ShowTitle(true); Sfx.I?.Blip(); }
-                    else if (back) Application.Quit();
+                    if (input.Confirm) { Sfx.I?.Blip(); StartRun(); }
+                    else if (input.Language) { Locale.Toggle(); screens.ShowTitle(true); Sfx.I?.Blip(); }
+                    else if (HandleSettings(input)) screens.ShowTitle(true);
+                    else if (input.Back) Application.Quit();
                     break;
                 case State.Playing:
-                    if (back || (pad != null && pad.startButton.wasPressedThisFrame)) SetPaused(true);
+                    if (input.Pause) SetPaused(true);
                     break;
                 case State.Paused:
-                    if (back || confirm) SetPaused(false);
-                    else if (kb != null && kb.qKey.wasPressedThisFrame) { SetPaused(false); EnterTitle(); }
-                    else if (kb != null && kb.sKey.wasPressedThisFrame) { SaveData.ScreenShake = !SaveData.ScreenShake; screens.RefreshPause(); }
+                    if (input.Back || input.Confirm) SetPaused(false);
+                    else if (input.MainMenu) { SetPaused(false); EnterTitle(); }
+                    else if (HandleSettings(input)) screens.RefreshPause();
                     break;
                 case State.GameOver:
-                    if ((kb != null && kb.rKey.wasPressedThisFrame) || confirm) { Sfx.I?.Blip(); StartRun(); }
-                    else if (back) EnterTitle();
+                    if (input.Retry || input.Confirm) { Sfx.I?.Blip(); StartRun(); }
+                    else if (input.Back) EnterTitle();
                     break;
             }
+        }
+
+        /// <summary>Accessibility settings available from both the title and pause screens.</summary>
+        bool HandleSettings(MenuInput input)
+        {
+            if (input.Shake) SaveData.ScreenShake = !SaveData.ScreenShake;
+            else if (input.Brightness) { SaveData.CycleBrightness(); postFx.ApplyBrightness(); }
+            else return false;
+            Sfx.I?.Blip();
+            return true;
         }
 
         void SetPaused(bool paused)
         {
             Current = paused ? State.Paused : State.Playing;
             Time.timeScale = paused ? 0f : 1f;
+            // Input devices still report presses at timeScale 0, so the player must stop reading them.
+            if (player != null) player.Controllable = !paused;
             screens.ShowPause(paused);
             AudioListener.pause = paused;
         }

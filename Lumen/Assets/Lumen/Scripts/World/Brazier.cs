@@ -8,15 +8,24 @@ using UnityEngine.Rendering.Universal;
 
 namespace Lumen.World
 {
-    /// <summary>Objective + checkpoint: lit braziers open the exit, refuel the player and repel shades.</summary>
+    /// <summary>
+    /// Objective + checkpoint: lit braziers open the exit, refuel the player and repel shades.
+    /// Each holds a finite fuel reserve; once drained it stays lit (it still counts for the exit)
+    /// but burns low, stops refuelling and its safe zone shrinks.
+    /// </summary>
     public class Brazier : MonoBehaviour
     {
         public bool IsLit { get; private set; }
         /// <summary>0..1 progress of a Devourer snuffing this brazier out.</summary>
         public float DrainProgress { get; private set; }
+        public float Reserve { get; private set; }
+        public bool Depleted => Reserve <= 0f;
+        public float SafeRadius => Depleted ? Tuning.brazierDepletedSafeRadius : Tuning.brazierSafeRadius;
 
-        SpriteRenderer fire;
-        Light2D light2D;
+        static GameTuning Tuning => GameTuning.I;
+
+        SpriteRenderer fire, coals;
+        Light2D light2D, coalLight;
         Flicker flicker;
         float drainedThisFrame;
 
@@ -38,6 +47,13 @@ namespace Lumen.World
             anim.frames = SpriteBank.BrazierFire;
             anim.fps = 10f;
 
+            // Unlit embers in the bowl: an unlit brazier still glows faintly, asking to be lit.
+            var coalSr = new GameObject("Coals").AddComponent<SpriteRenderer>();
+            coalSr.transform.SetParent(go.transform, false);
+            coalSr.sprite = SpriteBank.BrazierCoals;
+            coalSr.sharedMaterial = LumenAssets.I.Unlit;
+            coalSr.sortingOrder = 1;
+
             var solid = go.AddComponent<CircleCollider2D>();
             solid.radius = 0.35f;
             solid.offset = new Vector2(0, 0.1f);
@@ -47,18 +63,26 @@ namespace Lumen.World
             trigger.offset = solid.offset; // AddComponent auto-fits colliders to the sprite; override it
 
             go.AddComponent<YSort>();
-            // Awake runs inside AddComponent, so the fire child must already exist.
-            return go.AddComponent<Brazier>();
+            var brazier = go.AddComponent<Brazier>();
+            brazier.Init(fireSr, coalSr);
+            return brazier;
         }
 
-        void Awake()
+        void Init(SpriteRenderer fireRenderer, SpriteRenderer coalRenderer)
         {
-            fire = transform.Find("Fire").GetComponent<SpriteRenderer>();
-            light2D = LightFactory.Point(transform, Palette.BrazierLight, GameTuning.I.brazierLightRadius, 1.1f, true);
+            fire = fireRenderer;
+            coals = coalRenderer;
+            Reserve = Tuning.brazierReserve;
+
+            light2D = LightFactory.Point(transform, Palette.BrazierLight, Tuning.brazierLightRadius, 1.1f, true);
             light2D.transform.localPosition = new Vector3(0, 0.6f, 0);
             flicker = light2D.gameObject.AddComponent<Flicker>();
-            flicker.baseRadius = GameTuning.I.brazierLightRadius;
+            flicker.baseRadius = Tuning.brazierLightRadius;
             flicker.baseIntensity = 1.1f;
+
+            coalLight = LightFactory.Point(transform, Palette.FireRed, 1.3f, 0.45f, false);
+            coalLight.transform.localPosition = new Vector3(0, 0.5f, 0);
+
             SetLit(false, silent: true);
             LightField.Register(this);
         }
@@ -70,11 +94,9 @@ namespace Lumen.World
 
         void TryIgnite(Collider2D other)
         {
-            if (IsLit) return;
-            var player = other.GetComponent<PlayerFlame>();
-            if (player == null || !player.IsAlive) return;
+            if (IsLit || other.gameObject.layer != Layers.Player) return;
+            if (!other.TryGetComponent(out PlayerFlame player) || !player.IsAlive) return;
             SetLit(true);
-            GameManager.AddScore(GameTuning.I.scoreBrazier, transform.position);
         }
 
         public void SetLit(bool lit, bool silent = false)
@@ -84,6 +106,8 @@ namespace Lumen.World
             fire.enabled = lit;
             light2D.enabled = lit;
             flicker.enabled = lit;
+            coals.enabled = !lit;
+            coalLight.enabled = !lit;
             if (silent) return;
 
             if (lit)
@@ -99,6 +123,17 @@ namespace Lumen.World
             }
         }
 
+        /// <summary>Takes up to <paramref name="amount"/> fuel from the reserve. Returns what was taken.</summary>
+        public float Withdraw(float amount)
+        {
+            if (!IsLit) return 0f;
+            float taken = Mathf.Clamp(amount, 0f, Reserve);
+            Reserve -= taken;
+            if (taken > 0f && Depleted)
+                PixelParticles.Burst((Vector2)transform.position + Vector2.up * 0.7f, 14, new Color(0.4f, 0.36f, 0.42f), 1.2f, 1f, false, 0.8f);
+            return taken;
+        }
+
         /// <summary>Called every frame by a Devourer feeding on this brazier.</summary>
         public void Drain(float amount)
         {
@@ -110,12 +145,23 @@ namespace Lumen.World
 
         void Update()
         {
-            if (!IsLit) return;
+            if (!IsLit)
+            {
+                // Coals breathe slowly (~1.2 Hz) so unlit braziers read as "waiting", not as props.
+                float pulse = 0.55f + 0.45f * Mathf.Sin(Time.time * 7.5f + transform.position.x);
+                coals.color = new Color(1f, 1f, 1f, 0.35f + 0.55f * pulse);
+                coalLight.intensity = 0.25f + 0.25f * pulse;
+                return;
+            }
             drainedThisFrame -= Time.deltaTime;
             if (drainedThisFrame <= 0f) DrainProgress = Mathf.Max(0f, DrainProgress - Time.deltaTime * 0.3f);
-            // While being drained the fire gutters visibly — a telegraph for the player.
+
+            // A dry brazier burns low; being drained by a Devourer makes it gutter (a telegraph).
+            float strength = (Depleted ? 0.55f : 1f) * (1f - DrainProgress * 0.6f);
             flicker.intensityAmount = 0.12f + DrainProgress * 0.8f;
-            flicker.baseRadius = GameTuning.I.brazierLightRadius * (1f - DrainProgress * 0.6f);
+            flicker.baseRadius = Tuning.brazierLightRadius * strength;
+            flicker.baseIntensity = Depleted ? 0.75f : 1.1f;
+            fire.transform.localScale = Vector3.Lerp(fire.transform.localScale, Vector3.one * (Depleted ? 0.6f : 1f), Time.deltaTime * 3f);
         }
     }
 }

@@ -1,4 +1,5 @@
 using Lumen.Art;
+using Lumen.Core;
 using Lumen.Level;
 using Lumen.Lighting;
 using Lumen.Player;
@@ -15,7 +16,6 @@ namespace Lumen.Enemies
         enum State { Wander, Chase, Search, Flee }
 
         public override EnemyKind Kind => EnemyKind.Stalker;
-        protected override int ScoreValue => Tuning.scoreStalker;
 
         State state;
         Vector2 wanderTarget;
@@ -24,7 +24,8 @@ namespace Lumen.Enemies
         float alertFlash;
 
         public static Stalker Create(Vector2 pos, Transform parent) =>
-            Build<Stalker>("Stalker", pos, parent, SpriteBank.StalkerBody, SpriteBank.StalkerEyes, 0.3f, 6f);
+            Build<Stalker>("Stalker", pos, parent, SpriteBank.StalkerBody, SpriteBank.StalkerEyes, 0.3f, 6f,
+                new Color(1f, 0.2f, 0.33f, 0.28f), 0.38f);
 
         protected override void Awake()
         {
@@ -47,13 +48,17 @@ namespace Lumen.Enemies
             }
             if (state == State.Flee) state = State.Wander;
 
-            bool sees = LightField.CanSeePlayer(pos, 1.5f, 1.15f);
+            bool sees = LightField.CanSeePlayer(pos, Tuning.stalkerSightBase, Tuning.stalkerSightLightFactor);
             if (sees)
             {
-                if (state != State.Chase) alertFlash = 0.4f; // eyes flare: "I see you"
+                if (state != State.Chase)
+                {
+                    alertFlash = 0.4f; // eyes flare: "I see you"
+                    GameEvents.RaiseStalkerAlerted(pos);
+                }
                 state = State.Chase;
                 lastSeen = Player.transform.position;
-                stateTimer = 3f;
+                stateTimer = Tuning.stalkerMemory;
             }
 
             switch (state)
@@ -75,8 +80,11 @@ namespace Lumen.Enemies
                     break;
 
                 case State.Search:
-                    MoveTo(lastSeen, Tuning.stalkerWanderSpeed * 1.4f);
-                    if (stateTimer <= 0f) { state = State.Wander; wanderTarget = RandomNearbyFloor(5); }
+                    if (MoveTo(lastSeen, Tuning.stalkerWanderSpeed * 1.4f) || stateTimer <= 0f)
+                    {
+                        state = State.Wander;
+                        wanderTarget = RandomNearbyFloor(5);
+                    }
                     break;
             }
 
@@ -86,6 +94,13 @@ namespace Lumen.Enemies
                 eyeSprite.color = state == State.Chase ? Color.white : new Color(1f, 1f, 1f, 0.75f);
                 eyeSprite.transform.localScale = new Vector3(s, s, 1f);
             }
+        }
+
+        public override void Alert(Vector2 position)
+        {
+            lastSeen = position;
+            state = State.Search;
+            stateTimer = 6f;
         }
 
         protected override void OnTouchPlayer(PlayerFlame player)

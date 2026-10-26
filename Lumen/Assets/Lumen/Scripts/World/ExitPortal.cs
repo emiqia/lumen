@@ -8,7 +8,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Lumen.World
 {
-    /// <summary>Sealed until every brazier on the floor is lit.</summary>
+    /// <summary>Sealed until every brazier on the floor is lit. Reaching it raises PlayerReachedExit.</summary>
     public class ExitPortal : MonoBehaviour
     {
         public bool IsOpen { get; private set; }
@@ -21,24 +21,33 @@ namespace Lumen.World
             var go = new GameObject("Exit");
             go.transform.SetParent(parent, false);
             go.transform.position = position;
-            var p = go.AddComponent<ExitPortal>();
-            p.sr = go.AddComponent<SpriteRenderer>();
-            p.sr.sprite = SpriteBank.PortalClosed;
-            p.sr.sharedMaterial = LumenAssets.I.Lit;
-            p.sr.sortingOrder = -50; // flat on the floor
-            p.anim = go.AddComponent<SpriteAnimator>();
-            p.anim.frames = SpriteBank.PortalOpen;
-            p.anim.fps = 8f;
-            p.anim.enabled = false;
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = SpriteBank.PortalClosed;
+            sr.sharedMaterial = LumenAssets.I.Lit;
+            sr.sortingOrder = -50; // flat on the floor
+            var anim = go.AddComponent<SpriteAnimator>();
+            anim.frames = SpriteBank.PortalOpen;
+            anim.fps = 8f;
+            anim.enabled = false;
             var col = go.AddComponent<CircleCollider2D>();
             col.isTrigger = true;
             col.radius = 0.45f;
             col.offset = Vector2.zero; // AddComponent auto-fits colliders to the sprite; override it
-            p.light2D = LightFactory.Point(go.transform, Palette.PortalLight, 3.5f, 1.2f, true);
-            p.light2D.enabled = false;
-            var f = p.light2D.gameObject.AddComponent<Flicker>();
+            var light = LightFactory.Point(go.transform, Palette.PortalLight, 3.5f, 1.2f, true);
+            light.enabled = false;
+            var f = light.gameObject.AddComponent<Flicker>();
             f.baseRadius = 3.5f; f.baseIntensity = 1.2f; f.speed = 2f;
-            return p;
+
+            var portal = go.AddComponent<ExitPortal>();
+            portal.Init(sr, anim, light);
+            return portal;
+        }
+
+        void Init(SpriteRenderer renderer, SpriteAnimator animator, Light2D light)
+        {
+            sr = renderer;
+            anim = animator;
+            light2D = light;
         }
 
         public void SetOpen(bool open)
@@ -64,9 +73,8 @@ namespace Lumen.World
 
         void OnTriggerStay2D(Collider2D other)
         {
-            if (!IsOpen) return;
-            var player = other.GetComponent<PlayerFlame>();
-            if (player != null && player.IsAlive) GameManager.Instance.CompleteFloor();
+            if (!IsOpen || other.gameObject.layer != Layers.Player) return;
+            if (other.TryGetComponent(out PlayerFlame player) && player.IsAlive) GameEvents.RaisePlayerReachedExit();
         }
     }
 }

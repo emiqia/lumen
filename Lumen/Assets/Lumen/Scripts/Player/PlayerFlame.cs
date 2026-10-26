@@ -15,10 +15,10 @@ namespace Lumen.Player
     [RequireComponent(typeof(Rigidbody2D))]
     public class PlayerFlame : MonoBehaviour
     {
-        public IPlayerInput Input { get; set; } = new DeviceInput();
+        public IPlayerInput Controls { get; set; } = new DeviceInput();
 
-        public float Fuel { get; private set; }
-        public float FuelNormalized => Fuel / Tuning.maxFuel;
+        public float Fuel => fuel.Value;
+        public float FuelNormalized => fuel.Normalized;
         public float LightRadius { get; private set; }
         public bool IsDimmed { get; private set; }
         public bool IsAlive { get; private set; } = true;
@@ -33,6 +33,7 @@ namespace Lumen.Player
         static GameTuning Tuning => GameTuning.I;
 
         Rigidbody2D body;
+        FuelModel fuel;
         SpriteRenderer sprite;
         Light2D mainLight;
         Light2D flareLight;
@@ -42,6 +43,7 @@ namespace Lumen.Player
         float lastHitTime = -10f;
         EnemyKind lastHitSource;
         float sparkTimer;
+        float hitFlash;
 
         public static PlayerFlame Create(Vector2 position)
         {
@@ -82,7 +84,7 @@ namespace Lumen.Player
         void Awake()
         {
             body = GetComponent<Rigidbody2D>();
-            Fuel = Tuning.maxFuel;
+            fuel = new FuelModel(Tuning.maxFuel, Tuning.drainBright, Tuning.drainDim);
             LightRadius = Tuning.maxLightRadius;
 
             mainLight = LightFactory.Point(transform, Palette.PlayerLight, LightRadius, 1.15f, true);
@@ -97,22 +99,24 @@ namespace Lumen.Player
             LightField.Player = this;
         }
 
-        public void SetFuel(float value) => Fuel = Mathf.Clamp(value, 0f, Tuning.maxFuel);
-        public void AddFuel(float amount) => SetFuel(Fuel + amount);
+        public void SetFuel(float value) => fuel.Set(value);
+        public void AddFuel(float amount) => fuel.Add(amount);
 
         void Update()
         {
             if (!IsAlive) return;
             float dt = Time.deltaTime;
 
-            if (Controllable) Input.Tick();
-            IsDimmed = Controllable && Input.Dim;
+            if (Controllable) Controls.Tick();
+            IsDimmed = Controllable && Controls.Dim;
             if (IsDimmed) TimeDimmed += dt;
 
-            // Fuel economy
-            IsRefueling = LightField.InBrazierSafeZone(transform.position, out _);
-            if (IsRefueling) AddFuel(Tuning.brazierRefuelPerSecond * dt);
-            else AddFuel(-(IsDimmed ? Tuning.drainDim : Tuning.drainBright) * dt);
+            // Fuel economy: lit braziers refuel from their finite reserve; otherwise the flame burns.
+            float gained = 0f;
+            if (LightField.InBrazierSafeZone(transform.position, out var brazier) && !brazier.Depleted)
+                gained = brazier.Withdraw(fuel.RefuelFrom(brazier.Reserve, Tuning.brazierRefuelPerSecond, dt));
+            IsRefueling = gained > 0f;
+            if (!IsRefueling) fuel.Burn(dt, IsDimmed);
 
             // Light radius follows fuel; dimming clamps it down.
             float targetRadius = IsDimmed ? Tuning.dimLightRadius
@@ -124,25 +128,27 @@ namespace Lumen.Player
 
             // Flare
             FlareCooldownLeft = Mathf.Max(0f, FlareCooldownLeft - dt);
-            if (Controllable && Input.FlarePressed) TryFlare();
+            if (Controllable && Controls.FlarePressed) TryFlare();
             UpdateFlareGlow(dt);
 
             // Visual feedback
             invulnerable -= dt;
+            hitFlash -= Time.unscaledDeltaTime;
             float blink = invulnerable > 0 && Mathf.Repeat(Time.time * 14f, 1f) > 0.5f ? 0.25f : 1f;
             float scale = IsDimmed ? 0.8f : 1f;
             sprite.transform.localScale = Vector3.Lerp(sprite.transform.localScale, new Vector3(scale, scale, 1), dt * 12f);
-            sprite.color = new Color(1, 1, 1, blink);
-            if (Mathf.Abs(Input.Move.x) > 0.1f) sprite.flipX = Input.Move.x < 0;
+            // A hit flashes the flame pale blue-white for a couple of frames: unmistakable against fire colors.
+            sprite.color = hitFlash > 0f ? new Color(0.75f, 0.85f, 1f, 1f) : new Color(1, 1, 1, blink);
+            if (Mathf.Abs(Controls.Move.x) > 0.1f) sprite.flipX = Controls.Move.x < 0;
             EmitSparks(dt);
 
-            if (Fuel <= 0f) Die();
+            if (fuel.Empty) Die();
         }
 
         void FixedUpdate()
         {
             if (!IsAlive) { body.linearVelocity = Vector2.zero; return; }
-            Vector2 move = Controllable ? Input.Move : Vector2.zero;
+            Vector2 move = Controllable ? Controls.Move : Vector2.zero;
             float speed = IsDimmed ? Tuning.dimMoveSpeed : Tuning.moveSpeed;
             body.linearVelocity = Vector2.MoveTowards(body.linearVelocity, move * speed, Tuning.acceleration * Time.fixedDeltaTime);
         }
@@ -150,18 +156,19 @@ namespace Lumen.Player
         void TryFlare()
         {
             if (FlareCooldownLeft > 0f) return;
-            if (Fuel <= Tuning.flareCost + 1f)
+            if (!fuel.TrySpend(Tuning.flareCost))
             {
                 Sfx.I?.Blip(); // not enough fuel: fizzle
                 PixelParticles.Burst(transform.position, 6, Palette.FireRed, 1.5f, 0.3f);
                 return;
             }
-            AddFuel(-Tuning.flareCost);
             FlareCooldownLeft = Tuning.flareCooldown;
             FlaresUsed++;
             flareGlow = 1f;
             GameEvents.RaiseFlare(transform.position, Tuning.flareRadius);
-            PixelParticles.Ring(transform.position, 40, Palette.FireYellow, 9f, 0.45f);
+            // Two rings: the bright inner one marks the kill radius, the faint outer one the stun radius.
+            PixelParticles.RingToRadius(transform.position, 72, Palette.FireYellow, Tuning.flareKillRadius, 0.45f);
+            PixelParticles.RingToRadius(transform.position, 72, Palette.FireOrange, Tuning.flareRadius, 0.5f);
             PixelParticles.Burst(transform.position, 25, Palette.FireWhite, 5f, 0.5f);
             CameraRig.Shake(0.35f);
         }
@@ -189,18 +196,19 @@ namespace Lumen.Player
         {
             if (!IsAlive || invulnerable > 0f) return false;
             invulnerable = Tuning.hitInvulnerability;
+            hitFlash = 0.08f;
             lastHitTime = Time.time;
             lastHitSource = source;
-            AddFuel(-amount);
+            fuel.Add(-amount);
 
             Vector2 away = ((Vector2)transform.position - from).normalized;
             body.linearVelocity = away * 9f;
 
             GameEvents.RaisePlayerHit(transform.position, amount, source);
-            PixelParticles.Burst(transform.position, 18, Palette.FireOrange, 4f, 0.5f);
+            PixelParticles.Burst(transform.position, 18, Palette.UiText, 4f, 0.5f);
             CameraRig.Shake(0.5f);
             GameManager.HitStop(0.07f);
-            if (Fuel <= 0f) Die();
+            if (fuel.Empty) Die();
             return true;
         }
 
@@ -208,14 +216,14 @@ namespace Lumen.Player
         {
             if (!IsAlive) return;
             IsAlive = false;
-            Fuel = 0f;
+            fuel.Set(0f);
             mainLight.enabled = false;
             flareLight.enabled = false;
             sprite.enabled = false;
             PixelParticles.Burst(transform.position, 50, Palette.FireOrange, 3.5f, 1.2f, true, 1.2f);
             PixelParticles.Burst(transform.position, 30, new Color(0.3f, 0.3f, 0.35f), 1.5f, 1.8f, false, 0.8f);
             CameraRig.Shake(0.7f);
-            string cause = Time.time - lastHitTime < 1.5f ? "cause." + lastHitSource : "cause.fuel";
+            string cause = Time.time - lastHitTime < Tuning.deathCauseWindow ? "cause." + lastHitSource : "cause.fuel";
             GameEvents.RaisePlayerDied(cause);
         }
 

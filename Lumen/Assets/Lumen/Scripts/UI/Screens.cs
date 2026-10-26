@@ -9,8 +9,8 @@ namespace Lumen.UI
     public class Screens : MonoBehaviour
     {
         RectTransform title, pause, gameOver;
-        PixelText titleLogo, titlePrompt, titleBest, titleLang, titleSub, titleControls, titleQuit;
-        PixelText pauseTitle, pauseResume, pauseQuit, pauseShake;
+        PixelText titleLogo, titlePrompt, titleBest, titleLang, titleSub, titleControls, titleQuit, titleSettings;
+        PixelText pauseTitle, pauseResume, pauseQuit, pauseSettings;
         PixelText overTitle, overCause, overStats, overRecord, overRetry;
         Image fade;
         float fadeTarget, fadeValue;
@@ -27,12 +27,14 @@ namespace Lumen.UI
         {
             // Title
             title = Ui.Stretch(root, "Title");
-            Ui.Box(title, Ui.Center, Vector2.zero, new Vector2(4000, 4000), new Color(0, 0, 0, 0.35f)).rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            // Light veil only: the attract-mode demo behind the title should stay visible.
+            Ui.Box(title, Ui.Center, Vector2.zero, new Vector2(4000, 4000), new Color(0, 0, 0, 0.2f)).rectTransform.pivot = new Vector2(0.5f, 0.5f);
             titleLogo = Ui.Text(title, "LUMEN", Ui.Center, new Vector2(0, 42), 6, PixelText.Align.Center, Palette.FireYellow, 380);
             titleSub = Ui.Text(title, "", Ui.Center, new Vector2(0, 14), 1, PixelText.Align.Center, Palette.FireOrange, 380);
             titlePrompt = Ui.Text(title, "", Ui.Center, new Vector2(0, -16), 1, PixelText.Align.Center, Palette.UiText, 380);
             titleBest = Ui.Text(title, "", Ui.Center, new Vector2(0, -34), 1, PixelText.Align.Center, Palette.UiDim, 380);
             titleControls = Ui.Text(title, "", Ui.Bottom, new Vector2(0, 22), 1, PixelText.Align.Center, Palette.UiDim, 380);
+            titleSettings = Ui.Text(title, "", Ui.Bottom, new Vector2(0, 34), 1, PixelText.Align.Center, Palette.UiDim, 380);
             titleLang = Ui.Text(title, "", Ui.BottomLeft, new Vector2(6, 6), 1, PixelText.Align.Left, Palette.UiDim, 150);
             titleQuit = Ui.Text(title, "", Ui.BottomRight, new Vector2(-6, 6), 1, PixelText.Align.Right, Palette.UiDim, 150);
 
@@ -41,7 +43,7 @@ namespace Lumen.UI
             Ui.Box(pause, Ui.Center, Vector2.zero, new Vector2(4000, 4000), new Color(0.02f, 0.01f, 0.04f, 0.75f)).rectTransform.pivot = new Vector2(0.5f, 0.5f);
             pauseTitle = Ui.Text(pause, "", Ui.Center, new Vector2(0, 30), 3, PixelText.Align.Center, Palette.UiText);
             pauseResume = Ui.Text(pause, "", Ui.Center, new Vector2(0, 0), 1, PixelText.Align.Center, Palette.UiText);
-            pauseShake = Ui.Text(pause, "", Ui.Center, new Vector2(0, -14), 1, PixelText.Align.Center, Palette.UiDim);
+            pauseSettings = Ui.Text(pause, "", Ui.Center, new Vector2(0, -14), 1, PixelText.Align.Center, Palette.UiDim);
             pauseQuit = Ui.Text(pause, "", Ui.Center, new Vector2(0, -28), 1, PixelText.Align.Center, Palette.UiDim);
 
             // Game over
@@ -70,6 +72,7 @@ namespace Lumen.UI
             titleControls.Text = Locale.Get("title.controls");
             titleLang.Text = Locale.Get("title.lang");
             titleQuit.Text = Locale.Get("title.quit");
+            titleSettings.Text = SettingsLine();
             titleBest.Text = SaveData.BestScore > 0
                 ? Locale.Get("title.best") + " " + SaveData.BestScore + "   " + Locale.Get("title.floor") + " " + SaveData.BestFloor
                 : "";
@@ -85,8 +88,11 @@ namespace Lumen.UI
             RefreshPause();
         }
 
-        public void RefreshPause() =>
-            pauseShake.Text = Locale.Get("pause.shake") + ": " + (SaveData.ScreenShake ? "ON" : "OFF");
+        public void RefreshPause() => pauseSettings.Text = SettingsLine();
+
+        static string SettingsLine() =>
+            Locale.Get("settings.shake") + " " + Locale.Get(SaveData.ScreenShake ? "settings.on" : "settings.off") + "    " +
+            Locale.Get("settings.brightness") + " " + Mathf.RoundToInt(SaveData.Brightness * 100f) + "%";
 
         public void ShowGameOver(string causeKey, int score, int floor, float time, bool record)
         {

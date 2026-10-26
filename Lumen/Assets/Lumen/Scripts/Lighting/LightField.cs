@@ -24,13 +24,13 @@ namespace Lumen.Lighting
         public static bool LineOfSight(Vector2 a, Vector2 b) =>
             !Physics2D.Linecast(a, b, Layers.WallMask);
 
-        /// <summary>True if a lit brazier's safe zone covers this point.</summary>
+        /// <summary>True if a lit brazier's safe zone covers this point (dry braziers protect less).</summary>
         public static bool InBrazierSafeZone(Vector2 p, out Brazier source)
         {
-            float r = GameTuning.I.brazierSafeRadius;
             foreach (var b in braziers)
             {
                 if (!b.IsLit) continue;
+                float r = b.SafeRadius;
                 Vector2 bp = b.transform.position;
                 if ((bp - p).sqrMagnitude <= r * r && LineOfSight(bp, p))
                 {
@@ -51,7 +51,7 @@ namespace Lumen.Lighting
             return (pp - p).sqrMagnitude <= r * r && LineOfSight(pp, p);
         }
 
-        /// <summary>How visible the player is from a point (0 = unseen). Depends on light size.</summary>
+        /// <summary>Whether the player can be seen from a point. Range grows with the player's light radius.</summary>
         public static bool CanSeePlayer(Vector2 from, float baseRange, float lightFactor)
         {
             if (Player == null || !Player.IsAlive) return false;

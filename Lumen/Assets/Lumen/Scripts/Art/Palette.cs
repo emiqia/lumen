@@ -11,16 +11,16 @@ namespace Lumen.Art
         public static readonly Color32 Clear = new Color32(0, 0, 0, 0);
 
         // Floor stone
-        public static readonly Color32 FloorDark = Hex(0x26222d);
-        public static readonly Color32 Floor = Hex(0x37323f);
-        public static readonly Color32 FloorLight = Hex(0x48414f);
+        public static readonly Color32 FloorDark = Hex(0x2c2834);
+        public static readonly Color32 Floor = Hex(0x3d3846);
+        public static readonly Color32 FloorLight = Hex(0x554c5e);
         public static readonly Color32 FloorCrack = Hex(0x1d1a23);
         public static readonly Color32 Moss = Hex(0x2f3b33);
 
         // Walls
         public static readonly Color32 Void = Hex(0x0b0a0e);
-        public static readonly Color32 WallTop = Hex(0x1b1921);
-        public static readonly Color32 WallRim = Hex(0x3a3542);
+        public static readonly Color32 WallTop = Hex(0x2b2733);
+        public static readonly Color32 WallRim = Hex(0x5a5266);
         public static readonly Color32 Brick = Hex(0x5a5163);
         public static readonly Color32 BrickLight = Hex(0x716680);
         public static readonly Color32 BrickDark = Hex(0x443d4d);
@@ -68,7 +68,7 @@ namespace Lumen.Art
         public static readonly Color PlayerLight = new Color(1f, 0.72f, 0.42f);
         public static readonly Color BrazierLight = new Color(1f, 0.6f, 0.3f);
         public static readonly Color PortalLight = new Color(0.4f, 0.75f, 1f);
-        public static readonly Color AmbientLight = new Color(0.32f, 0.3f, 0.5f);
+        public static readonly Color AmbientLight = new Color(0.22f, 0.28f, 0.55f); // cold moonlit blue vs warm fire
 
         public static Color32 Lerp(Color32 a, Color32 b, float t) => Color32.Lerp(a, b, t);
     }

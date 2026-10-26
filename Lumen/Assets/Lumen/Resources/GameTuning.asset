@@ -13,41 +13,63 @@ MonoBehaviour:
   m_Name: GameTuning
   m_EditorClassIdentifier: 
   moveSpeed: 4.2
-  dimMoveSpeed: 2.9
+  dimMoveSpeed: 3.1
   acceleration: 40
   maxFuel: 100
   drainBright: 1.5
-  drainDim: 0.55
-  brazierRefuelPerSecond: 22
+  drainDim: 0.4
   emberFuel: 12
   hitInvulnerability: 1.1
   lowFuelWarning: 25
+  floorCarryBonus: 15
+  floorCarryMinimum: 35
+  deathCauseWindow: 3
   minLightRadius: 3.2
   maxLightRadius: 7.5
   dimLightRadius: 2.2
-  burnRadiusFactor: 0.45
-  flareCost: 18
+  burnRadiusFactor: 0.4
+  flareCost: 22
   flareRadius: 5.5
-  flareCooldown: 1.1
+  flareKillRadius: 3.2
+  flareStunTime: 2
+  flareCooldown: 2.2
   brazierLightRadius: 5
   brazierSafeRadius: 3.2
+  brazierDepletedSafeRadius: 1.8
+  brazierRefuelPerSecond: 16
+  brazierReserve: 60
   stalkerWanderSpeed: 1.4
-  stalkerChaseSpeed: 3.3
+  stalkerChaseSpeed: 3.6
   stalkerDamage: 22
-  stalkerBurnTime: 1.4
+  stalkerBurnTime: 1.8
+  stalkerSightBase: 1.5
+  stalkerSightLightFactor: 1.15
+  stalkerMemory: 3
   mothSpeed: 2.6
   mothDiveSpeed: 7.5
-  mothDamage: 10
+  mothDamage: 14
+  mothOrbitRadius: 3
+  mothRetreatTime: 2.5
   devourerSpeed: 1.25
   devourerDamage: 30
   devourerFlaresToKill: 3
+  devourerStunTime: 2
   devourerExtinguishTime: 2.5
   darknessSpawnInterval: 40
+  darknessSpawnMinInterval: 22
+  darknessRampFromFloor: 6
+  darknessIntervalDropPerFloor: 2
+  darknessSpawnMinSteps: 14
   scoreEmber: 10
   scoreBrazier: 50
   scoreStalker: 25
   scoreMoth: 15
   scoreDevourer: 150
   scoreFloorBase: 100
-  floorParTime: 75
+  floorParBase: 30
+  floorParPerFloor: 6
+  floorParCap: 9
   scorePerSecondUnderPar: 4
+  ambientIntensity: 0.14
+  vignetteBase: 0.28
+  vignetteDanger: 0.5

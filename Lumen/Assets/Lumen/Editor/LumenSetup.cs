@@ -78,7 +78,13 @@ namespace Lumen.EditorTools
                 if (string.IsNullOrEmpty(prop.stringValue) || prop.stringValue == RequiredLayers[i])
                     prop.stringValue = RequiredLayers[i];
                 else
-                    Debug.LogWarning($"[Lumen] Layer {8 + i} is already used by '{prop.stringValue}'.");
+                {
+                    // Gameplay resolves layers by name with these indices as fallback; a clash would
+                    // silently break physics queries, so refuse to continue.
+                    Debug.LogError($"[Lumen] Layer {8 + i} is already used by '{prop.stringValue}'. Free it and run Setup again.");
+                    if (Application.isBatchMode) EditorApplication.Exit(1);
+                    return;
+                }
             }
             tagManager.ApplyModifiedProperties();
         }
@@ -122,12 +128,16 @@ namespace Lumen.EditorTools
             return asset;
         }
 
+        /// <summary>Creates the bootstrap scene only if it does not exist yet, so manual edits survive.</summary>
         static void EnsureScene()
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            new GameObject("Lumen").AddComponent<GameManager>();
-            EditorSceneManager.SaveScene(scene, ScenePath);
+            if (!File.Exists(ScenePath))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
+                var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                new GameObject("Lumen").AddComponent<GameManager>();
+                EditorSceneManager.SaveScene(scene, ScenePath);
+            }
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
         }
 

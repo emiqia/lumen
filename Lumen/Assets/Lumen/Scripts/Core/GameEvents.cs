@@ -17,6 +17,8 @@ namespace Lumen.Core
         public static event Action<Vector2> BrazierLit;
         public static event Action<Vector2> BrazierExtinguished;
         public static event Action ExitOpened;
+        public static event Action PlayerReachedExit;
+        public static event Action<Vector2> StalkerAlerted;             // a stalker spotted the player
         public static event Action<int> FloorStarted;
         public static event Action<int> FloorCleared;
         public static event Action<string> PlayerDied;                  // cause key
@@ -29,6 +31,8 @@ namespace Lumen.Core
         public static void RaiseBrazierLit(Vector2 p) => BrazierLit?.Invoke(p);
         public static void RaiseBrazierExtinguished(Vector2 p) => BrazierExtinguished?.Invoke(p);
         public static void RaiseExitOpened() => ExitOpened?.Invoke();
+        public static void RaisePlayerReachedExit() => PlayerReachedExit?.Invoke();
+        public static void RaiseStalkerAlerted(Vector2 p) => StalkerAlerted?.Invoke(p);
         public static void RaiseFloorStarted(int f) => FloorStarted?.Invoke(f);
         public static void RaiseFloorCleared(int f) => FloorCleared?.Invoke(f);
         public static void RaisePlayerDied(string cause) => PlayerDied?.Invoke(cause);
@@ -39,6 +43,7 @@ namespace Lumen.Core
         {
             Flare = null; EnemyKilled = null; PlayerHit = null; EmberCollected = null;
             BrazierLit = null; BrazierExtinguished = null; ExitOpened = null;
+            PlayerReachedExit = null; StalkerAlerted = null;
             FloorStarted = null; FloorCleared = null; PlayerDied = null; ScoreGained = null;
         }
     }

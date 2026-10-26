@@ -11,6 +11,9 @@ namespace Lumen.World
     /// <summary>Floating fuel pickup. Drifts toward the player when close (pickup magnet).</summary>
     public class Ember : MonoBehaviour
     {
+        static readonly System.Collections.Generic.List<Ember> all = new System.Collections.Generic.List<Ember>();
+        public static System.Collections.Generic.IReadOnlyList<Ember> All => all;
+
         Vector2 home;
         float phase;
         bool collected;
@@ -36,6 +39,9 @@ namespace Lumen.World
             return go.AddComponent<Ember>();
         }
 
+        void OnEnable() => all.Add(this);
+        void OnDisable() => all.Remove(this);
+
         void Start()
         {
             home = transform.position;
@@ -57,12 +63,10 @@ namespace Lumen.World
 
         void OnTriggerEnter2D(Collider2D other)
         {
-            if (collected) return;
-            var player = other.GetComponent<PlayerFlame>();
-            if (player == null || !player.IsAlive) return;
+            if (collected || other.gameObject.layer != Layers.Player) return;
+            if (!other.TryGetComponent(out PlayerFlame player) || !player.IsAlive) return;
             collected = true;
             player.AddFuel(GameTuning.I.emberFuel);
-            GameManager.AddScore(GameTuning.I.scoreEmber, transform.position);
             GameEvents.RaiseEmberCollected(transform.position);
             PixelParticles.Burst(transform.position, 12, Palette.FireYellow, 2.5f, 0.4f, true, 1f);
             Destroy(gameObject);

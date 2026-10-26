@@ -8,31 +8,52 @@ using UnityEngine;
 
 namespace Lumen.Level
 {
-    /// <summary>A built, playable floor.</summary>
-    public class LevelInstance
+    /// <summary>A built, playable floor. Owns the runtime textures it baked, so they can be freed.</summary>
+    public class LevelInstance : System.IDisposable
     {
         public DungeonMap Map;
+        public FloorSettings Settings;
         public GridPathfinder Pathfinder;
         public GameObject Root;
         public readonly List<Brazier> Braziers = new List<Brazier>();
         public ExitPortal Exit;
+        internal readonly List<Object> OwnedAssets = new List<Object>();
+
+        public int LitBraziers
+        {
+            get
+            {
+                int n = 0;
+                foreach (var b in Braziers) if (b.IsLit) n++;
+                return n;
+            }
+        }
+
+        /// <summary>Destroying the root does not free runtime-created textures and sprites; this does.</summary>
+        public void Dispose()
+        {
+            if (Root != null) Object.Destroy(Root);
+            foreach (var asset in OwnedAssets) if (asset != null) Object.Destroy(asset);
+            OwnedAssets.Clear();
+        }
     }
 
     /// <summary>Turns a DungeonMap into scene objects: baked art, colliders, shadow casters, actors.</summary>
     public static class LevelBuilder
     {
-        public static LevelInstance Build(DungeonMap map, int seed, Transform parent)
+        public static LevelInstance Build(DungeonMap map, FloorSettings settings, int seed, Transform parent)
         {
             var level = new LevelInstance
             {
                 Map = map,
+                Settings = settings,
                 Pathfinder = new GridPathfinder(map),
                 Root = new GameObject("Level"),
             };
             var root = level.Root.transform;
             root.SetParent(parent, false);
 
-            BuildArt(map, seed, root);
+            BuildArt(level, seed, root);
             BuildWallColliders(map, root);
             BuildShadowCasters(map, root);
             BuildDecorations(map, seed, root);
@@ -53,16 +74,19 @@ namespace Lumen.Level
                 EnemyKind.Devourer => Devourer.Create(pos, level.Root.transform),
                 _ => Stalker.Create(pos, level.Root.transform),
             };
-            s.Init(level.Map, level.Pathfinder);
+            s.Init(level.Map, level.Pathfinder, level.Settings.EnemySpeedMultiplier);
             return s;
         }
 
-        static void BuildArt(DungeonMap map, int seed, Transform root)
+        static void BuildArt(LevelInstance level, int seed, Transform root)
         {
-            var (albedo, normal) = LevelPainter.Paint(map, seed);
+            var (albedo, normal) = LevelPainter.Paint(level.Map, seed);
             var secondary = new[] { new SecondarySpriteTexture { name = "_NormalMap", texture = normal } };
             var sprite = Sprite.Create(albedo, new Rect(0, 0, albedo.width, albedo.height), Vector2.zero,
                 SpriteBank.PPU, 0, SpriteMeshType.FullRect, Vector4.zero, false, secondary);
+            level.OwnedAssets.Add(albedo);
+            level.OwnedAssets.Add(normal);
+            level.OwnedAssets.Add(sprite);
 
             var go = new GameObject("LevelArt");
             go.transform.SetParent(root, false);
@@ -116,6 +140,8 @@ namespace Lumen.Level
             }
         }
 
+        const int CandleKind = 4;
+
         static void BuildDecorations(DungeonMap map, int seed, Transform root)
         {
             var rng = new System.Random(seed + 77);
@@ -132,6 +158,19 @@ namespace Lumen.Level
                 sr.sharedMaterial = LumenAssets.I.Lit;
                 sr.sortingOrder = -20000;
                 sr.flipX = rng.Next(2) == 0 && kind != 3;
+                // One value step darker than gameplay objects so props never read as threats or pickups.
+                sr.color = new Color(0.7f, 0.68f, 0.75f);
+
+                if (kind == CandleKind)
+                {
+                    var flame = new GameObject("Flame").AddComponent<SpriteRenderer>();
+                    flame.transform.SetParent(go.transform, false);
+                    flame.sprite = SpriteBank.CandleFlame;
+                    flame.sharedMaterial = LumenAssets.I.Unlit;
+                    flame.sortingOrder = -19999;
+                    var glow = LightFactory.Point(go.transform, Palette.FireOrange, 0.9f, 0.35f, false);
+                    glow.transform.localPosition = new Vector3(0, 0.05f, 0);
+                }
             }
         }
 

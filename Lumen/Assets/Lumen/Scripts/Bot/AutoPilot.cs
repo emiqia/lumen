@@ -60,9 +60,11 @@ namespace Lumen.Bot
             }
 
             bool flareReady = player.FlareCooldownLeft <= 0f && player.Fuel > tuningCost + 8f;
-            if (nearest != null && flareReady)
+            if (nearest != null && flareReady && !(nearest.Kind == EnemyKind.Devourer && nearest.IsStunned))
             {
-                float trigger = nearest.Kind == EnemyKind.Devourer ? 2.6f : nearest.Kind == EnemyKind.Moth ? 1.6f : 2.2f;
+                // Inside the kill radius (with a margin) so the flare is worth its cost.
+                float kill = GameTuning.I.flareKillRadius;
+                float trigger = nearest.Kind == EnemyKind.Devourer ? kill * 0.8f : nearest.Kind == EnemyKind.Moth ? 1.6f : kill * 0.7f;
                 if (nearestD < trigger) FlarePressed = true;
             }
 
@@ -135,17 +137,17 @@ namespace Lumen.Bot
                 return map.InBounds(c) ? dist[c.x, c.y] : -1;
             }
 
-            // Refuel hysteresis: commit until mostly full.
-            if (refueling && (player.Fuel > 88f || !AnyLit(gm))) refueling = false;
+            // Refuel hysteresis: commit until mostly full, but only at braziers that still have fuel.
+            if (refueling && (player.Fuel > 88f || !AnyUsable(gm))) refueling = false;
             if (!refueling && player.Fuel < 38f)
             {
-                var lit = Nearest(gm.Level.Braziers, b => b.IsLit, Steps, out int s);
+                var lit = Nearest(gm.Level.Braziers, Usable, Steps, out int s);
                 if (lit != null && s >= 0 && s < player.Fuel * 0.9f) refueling = true;
             }
 
             if (refueling)
             {
-                var lit = Nearest(gm.Level.Braziers, b => b.IsLit, Steps, out _);
+                var lit = Nearest(gm.Level.Braziers, Usable, Steps, out _);
                 if (lit != null) { SetGoal(Goal.Refuel, DungeonMap.WorldToCell((Vector2)lit.transform.position + Vector2.down * 0.9f)); return; }
             }
 
@@ -154,7 +156,7 @@ namespace Lumen.Bot
             {
                 Ember best = null;
                 int bestS = 8;
-                foreach (var e in Object.FindObjectsByType<Ember>(FindObjectsSortMode.None))
+                foreach (var e in Ember.All)
                 {
                     int s = Steps(e.transform.position);
                     if (s >= 0 && s < bestS) { bestS = s; best = e; }
@@ -169,9 +171,11 @@ namespace Lumen.Bot
             SetGoal(Goal.None, goalCell);
         }
 
-        static bool AnyLit(GameManager gm)
+        static bool Usable(Brazier b) => b.IsLit && !b.Depleted;
+
+        static bool AnyUsable(GameManager gm)
         {
-            foreach (var b in gm.Level.Braziers) if (b.IsLit) return true;
+            foreach (var b in gm.Level.Braziers) if (Usable(b)) return true;
             return false;
         }
 

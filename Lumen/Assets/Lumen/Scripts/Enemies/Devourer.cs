@@ -16,7 +16,6 @@ namespace Lumen.Enemies
     public class Devourer : Shade
     {
         public override EnemyKind Kind => EnemyKind.Devourer;
-        protected override int ScoreValue => Tuning.scoreDevourer;
 
         int flaresTaken;
         Brazier targetBrazier;
@@ -25,9 +24,10 @@ namespace Lumen.Enemies
 
         public static Devourer Create(Vector2 pos, Transform parent)
         {
-            var d = Build<Devourer>("Devourer", pos, parent, SpriteBank.DevourerBody, SpriteBank.DevourerEyes, 0.55f, 4f);
+            var d = Build<Devourer>("Devourer", pos, parent, SpriteBank.DevourerBody, SpriteBank.DevourerEyes, 0.55f, 4f,
+                new Color(0.72f, 1f, 0.24f, 0.22f), 0.62f);
             d.body.mass = 20f;
-            d.transform.Find("Shadow").localScale = new Vector3(2f, 1.6f, 1f);
+            d.shadowSprite.transform.localScale = new Vector3(2f, 1.6f, 1f);
             return d;
         }
 
@@ -72,8 +72,10 @@ namespace Lumen.Enemies
             if (IsDead) return;
             Vector2 p = transform.position;
             if ((p - origin).sqrMagnitude > radius * radius || !LightField.LineOfSight(origin, p)) return;
+            // Flares only wound it when it isn't already reeling: three separate engagements, not one burst.
+            if (stunned > 0f) return;
             flaresTaken++;
-            stunned = 3.5f;
+            stunned = Tuning.devourerStunTime;
             bodySprite.color = new Color(1f, 0.6f, 0.6f);
             PixelParticles.Burst(p + Vector2.up * 0.6f, 20, Palette.DevourerEye, 3f, 0.6f);
             CameraRig.Shake(0.3f);

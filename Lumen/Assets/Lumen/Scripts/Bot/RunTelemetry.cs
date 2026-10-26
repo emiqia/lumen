@@ -20,6 +20,7 @@ namespace Lumen.Bot
             public float fuelAtExit;
             public int hitsTaken;
             public float fuelLostToHits;
+            public int flaresUsed;
         }
 
         [Serializable]
@@ -50,7 +51,12 @@ namespace Lumen.Bot
         public RunTelemetry()
         {
             GameEvents.EmberCollected += _ => { if (Current != null) Current.embersCollected++; };
-            GameEvents.Flare += (_, __) => { if (Current != null) Current.flaresUsed++; };
+            GameEvents.Flare += (_, __) =>
+            {
+                if (Current == null) return;
+                Current.flaresUsed++;
+                if (floor != null) floor.flaresUsed++;
+            };
             GameEvents.BrazierExtinguished += _ => { if (Current != null) Current.braziersExtinguished++; };
             GameEvents.EnemyKilled += (_, k) =>
             {
@@ -100,14 +106,19 @@ namespace Lumen.Bot
             floor.fuelAtExit = fuel;
         }
 
-        public void EndRun(string cause, int floorReached, int score, float seconds)
+        /// <summary>Closes the run. <paramref name="fuelLeft"/> is recorded for runs that end without dying (timeouts).</summary>
+        public void EndRun(string cause, int floorReached, int score, float seconds, float floorSeconds, float fuelLeft = 0f)
         {
             if (Current == null) return;
             Current.deathCause = cause;
             Current.floorReached = floorReached;
             Current.score = score;
             Current.seconds = seconds;
-            if (floor != null && floor.seconds == 0) floor.seconds = GameManager.Instance.FloorTime;
+            if (floor != null && floor.seconds == 0)
+            {
+                floor.seconds = floorSeconds;
+                floor.fuelAtExit = fuelLeft;
+            }
             Runs.Add(Current);
             Current = null;
             floor = null;

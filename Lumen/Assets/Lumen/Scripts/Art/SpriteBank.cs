@@ -20,6 +20,9 @@ namespace Lumen.Art
         public static Sprite DevourerEyes { get; private set; }
         public static Sprite Brazier { get; private set; }
         public static Sprite[] BrazierFire { get; private set; }
+        public static Sprite BrazierCoals { get; private set; }
+        public static Sprite CandleFlame { get; private set; }
+        public static Sprite Arrow { get; private set; }
         public static Sprite[] Ember { get; private set; }
         public static Sprite PortalClosed { get; private set; }
         public static Sprite[] PortalOpen { get; private set; }
@@ -48,6 +51,9 @@ namespace Lumen.Art
             DevourerEyes = Make(DevourerEyesCanvas(), "devourer_eyes", new Vector2(0.5f, 0.15f));
             Brazier = Make(BrazierCanvas(), "brazier", new Vector2(0.5f, 0.2f));
             BrazierFire = Frames(4, i => BrazierFireFrame(i), "brazier_fire", new Vector2(0.5f, 0.2f));
+            BrazierCoals = Make(BrazierCoalsCanvas(), "brazier_coals", new Vector2(0.5f, 0.2f));
+            CandleFlame = Make(CandleFlameCanvas(), "candle_flame", new Vector2(0.5f, 0.5f));
+            Arrow = Make(ArrowCanvas(), "arrow", new Vector2(0.5f, 0.5f));
             Ember = Frames(4, i => EmberFrame(i), "ember", new Vector2(0.5f, 0.5f));
             PortalClosed = Make(PortalCanvas(false, 0), "portal_closed", new Vector2(0.5f, 0.5f));
             PortalOpen = Frames(4, i => PortalCanvas(true, i), "portal_open", new Vector2(0.5f, 0.5f));
@@ -230,16 +236,56 @@ namespace Lumen.Art
         }
 
         // ---------------------------------------------------------------- Brazier
+        // A wide bowl on a splayed tripod: reads as "fire goes here", not as an anvil.
         static PixelCanvas BrazierCanvas()
         {
             var p = new PixelCanvas(16, 16);
-            p.Rect(6, 1, 4, 5, Palette.StoneDark);          // pillar
-            p.Rect(7, 1, 1, 5, Palette.Stone);
-            p.Rect(4, 0, 8, 2, Palette.StoneDark);          // base
-            p.Rect(3, 6, 10, 3, Palette.Stone);             // bowl
-            p.Rect(2, 8, 12, 1, Palette.StoneLight);
-            p.Rect(4, 6, 8, 1, Palette.StoneDark);
-            p.Rect(4, 8, 8, 1, Palette.Metal);              // coal rim
+            int[] legY = { 0, 1, 2, 3, 4, 5 };
+            int[] legX = { 3, 4, 4, 5, 5, 6 };
+            for (int i = 0; i < legY.Length; i++)
+            {
+                p.Set(legX[i], legY[i], Palette.StoneDark);
+                p.Set(15 - legX[i], legY[i], Palette.StoneDark);
+            }
+            p.Rect(7, 2, 2, 4, Palette.Metal);              // central stem
+            p.Rect(4, 6, 8, 1, Palette.StoneDark);          // bowl bottom
+            p.Rect(3, 7, 10, 1, Palette.Stone);
+            p.Rect(2, 8, 12, 1, Palette.Stone);
+            p.Rect(2, 9, 12, 1, Palette.StoneLight);        // rim catches the light
+            p.Rect(4, 9, 8, 1, Palette.Metal);              // dark coal bed inside the rim
+            p.Outline(new Color32(10, 8, 14, 255));
+            return p;
+        }
+
+        static PixelCanvas BrazierCoalsCanvas()
+        {
+            var p = new PixelCanvas(16, 16);
+            Color32[] row = { Palette.FireDeep, Palette.FireRed, Palette.FireDeep, Palette.FireOrange,
+                              Palette.FireRed, Palette.FireDeep, Palette.FireRed, Palette.FireDeep };
+            for (int i = 0; i < row.Length; i++) p.Set(4 + i, 9, row[i]);
+            p.Set(6, 10, Palette.FireRed);
+            p.Set(9, 10, Palette.FireDeep);
+            p.Set(7, 10, Palette.FireDeep);
+            return p;
+        }
+
+        static PixelCanvas CandleFlameCanvas()
+        {
+            var p = new PixelCanvas(16, 16);
+            p.Set(7, 7, Palette.FireOrange);
+            p.Set(7, 8, Palette.FireYellow);
+            p.Set(7, 9, Palette.FireWhite);
+            return p;
+        }
+
+        static PixelCanvas ArrowCanvas()
+        {
+            var p = new PixelCanvas(9, 9);
+            for (int x = 1; x < 8; x++)
+            {
+                int half = (7 - x) / 2;
+                for (int y = 4 - half; y <= 4 + half; y++) p.Set(x, y, Color.white);
+            }
             p.Outline(new Color32(10, 8, 14, 255));
             return p;
         }
@@ -307,11 +353,14 @@ namespace Lumen.Art
             var p = new PixelCanvas(16, 16);
             switch (kind)
             {
-                case 0: // skull
-                    p.Ellipse(8, 6, 3.5f, 3f, Palette.Bone);
-                    p.Rect(6, 3, 5, 1, Palette.Bone);
-                    p.Set(7, 6, Palette.FloorCrack); p.Set(9, 6, Palette.FloorCrack);
-                    p.Rect(7, 3, 1, 1, Palette.BoneDark); p.Rect(9, 3, 1, 1, Palette.BoneDark);
+                case 0: // skull: square-ish cranium, big sockets, teeth and a separate jaw (not a round ghost)
+                    p.Rect(5, 5, 7, 5, Palette.Bone);
+                    p.Rect(6, 10, 5, 1, Palette.Bone);
+                    p.Rect(6, 6, 2, 2, Palette.FloorCrack); p.Rect(9, 6, 2, 2, Palette.FloorCrack);
+                    p.Set(8, 5, Palette.BoneDark);
+                    for (int x = 6; x <= 10; x++) p.Set(x, 4, x % 2 == 0 ? Palette.Bone : Palette.BoneDark);
+                    p.Rect(6, 2, 5, 1, Palette.BoneDark);
+                    p.Outline(Palette.FloorCrack);
                     break;
                 case 1: // crossed bones
                     for (int i = 0; i < 8; i++)
@@ -326,14 +375,20 @@ namespace Lumen.Art
                     p.Ellipse(10, 3, 2f, 1.5f, Palette.Stone);
                     p.Set(8, 6, Palette.StoneLight); p.Set(12, 5, Palette.StoneDark);
                     break;
-                case 3: // cobweb corner
-                    for (int i = 0; i < 9; i++)
+                case 3: // cobweb in the top-left corner: three radials and two concentric arcs
+                    var web = new Color32(205, 205, 215, 150);
+                    for (int i = 0; i < 11; i++)
                     {
-                        p.Set(i, 15, new Color32(200, 200, 210, 120));
-                        p.Set(0, 15 - i, new Color32(200, 200, 210, 120));
-                        p.Set(i, 15 - i, new Color32(200, 200, 210, 90));
+                        p.Set(i, 15, web);
+                        p.Set(0, 15 - i, web);
+                        if (i < 8) p.Set(i, 15 - i, web);
                     }
-                    for (int i = 0; i < 5; i++) { p.Set(i + 1, 11, new Color32(200, 200, 210, 70)); p.Set(4, 11 + i, new Color32(200, 200, 210, 70)); }
+                    foreach (float r in new[] { 4.5f, 8.5f })
+                        for (int a = 0; a <= 12; a++)
+                        {
+                            float t = a / 12f * Mathf.PI * 0.5f;
+                            p.Set(Mathf.RoundToInt(Mathf.Cos(t) * r), 15 - Mathf.RoundToInt(Mathf.Sin(t) * r), web);
+                        }
                     break;
                 default: // candle stub
                     p.Rect(7, 2, 2, 4, Palette.Bone);

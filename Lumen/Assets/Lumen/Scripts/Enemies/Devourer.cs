@@ -18,6 +18,7 @@ namespace Lumen.Enemies
         public override EnemyKind Kind => EnemyKind.Devourer;
 
         WoundGate wounds;
+        SpriteRenderer[] woundMarks;
         Brazier targetBrazier;
         float retarget;
         Vector2 wanderTarget;
@@ -27,6 +28,22 @@ namespace Lumen.Enemies
             var d = Build<Devourer>("Devourer", pos, parent, SpriteBank.DevourerBody, SpriteBank.DevourerEyes, 0.55f, 4f, 0.22f, 0.62f);
             d.body.mass = 20f;
             d.shadowSprite.transform.localScale = new Vector3(2f, 1.6f, 1f);
+
+            // Three marks over its head: one per flare still needed. They go dark while it is
+            // immune (enraged) and light up again when it can be hurt: the fight explains itself.
+            var pips = new SpriteRenderer[Tuning.devourerFlaresToKill];
+            for (int i = 0; i < pips.Length; i++)
+            {
+                var pip = new GameObject("WoundMark").AddComponent<SpriteRenderer>();
+                pip.transform.SetParent(d.transform, false);
+                pip.transform.localPosition = new Vector3((i - (pips.Length - 1) * 0.5f) * 0.35f, 1.75f, 0f);
+                pip.transform.localScale = Vector3.one * 3.5f; // the 1x1 px sprite -> 3.5 px square
+                pip.sprite = SpriteBank.Pixel;
+                pip.sharedMaterial = LumenAssets.I.Unlit;
+                pip.sortingOrder = 32000;
+                pips[i] = pip;
+            }
+            d.woundMarks = pips;
             return d;
         }
 
@@ -110,9 +127,26 @@ namespace Lumen.Enemies
         protected override void Update()
         {
             base.Update();
+            UpdateWoundMarks();
             // Enraged: glows angry red; otherwise fades back to normal after a stun.
             Color target = Enraged ? new Color(1f, 0.45f, 0.45f) : Color.white;
             if (stunned <= 0f) bodySprite.color = Color.Lerp(bodySprite.color, target, Time.deltaTime * 3f);
+        }
+
+        void UpdateWoundMarks()
+        {
+            if (woundMarks == null) return;
+            int remaining = Tuning.devourerFlaresToKill - wounds.Wounds;
+            bool vulnerable = Vulnerable;
+            bool blink = Mathf.Repeat(Time.time * 4f, 1f) > 0.5f;
+            for (int i = 0; i < woundMarks.Length; i++)
+            {
+                bool alive = i < remaining;
+                Color c = !alive ? new Color(0.25f, 0.22f, 0.28f, 0.6f)          // spent
+                    : vulnerable ? (Color)Palette.FireOrange                       // hit it now
+                    : new Color(0.45f, 0.4f, 0.5f, blink ? 0.9f : 0.4f);          // immune: dark, flickering
+                woundMarks[i].color = c;
+            }
         }
 
         Brazier NearestLitBrazier()

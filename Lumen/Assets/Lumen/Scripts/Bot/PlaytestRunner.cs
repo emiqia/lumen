@@ -79,10 +79,25 @@ namespace Lumen.Bot
                 GameEvents.BrazierExtinguished += _ => Mark("brazier_out");
                 GameEvents.ExitOpened += () => Mark("exit_open");
                 GameEvents.PlayerHit += (_, __, k) => Mark("hit_" + k);
-                // The title screen with the attract-mode demo running behind it.
+                // Front end: title (with the attract demo behind), difficulty, options and the book.
                 gm.EnterTitle();
                 yield return new WaitForSecondsRealtime(5f);
                 Capture("title");
+                gm.FrontEnd.ShowDifficulty();
+                yield return new WaitForSecondsRealtime(0.5f);
+                Capture("menu_difficulty");
+                gm.FrontEnd.ShowOptions();
+                yield return new WaitForSecondsRealtime(0.5f);
+                Capture("menu_options");
+                gm.FrontEnd.ShowTitle();
+                gm.Book.Open(beforeRun: false);
+                foreach (int page in new[] { 1, 3, 7, 8 })
+                {
+                    gm.Book.GoToPage(page);
+                    yield return new WaitForSecondsRealtime(0.5f);
+                    Capture("book_page" + page);
+                }
+                gm.Book.CloseSilently();
                 yield return null;
             }
 
@@ -93,7 +108,7 @@ namespace Lumen.Bot
                 gm.StartRun(difficulty, seed); // the run seed is recorded in telemetry by GameManager
                 float start = Time.unscaledTime;
                 int shotFloor = 0, enemyShots = 0;
-                bool shotBrazier = false;
+                bool shotBrazier = false, shotBlessing = false;
                 float nextEnemyShot = 0f;
 
                 while (gm.Current != GameManager.State.GameOver)
@@ -103,6 +118,12 @@ namespace Lumen.Bot
                         // Safety valve for a stuck (or simply excellent) bot: count it as a timeout.
                         gm.AbortRun("timeout");
                         break;
+                    }
+                    if (shots && !shotBlessing && gm.Current == GameManager.State.ChoosingBlessing)
+                    {
+                        shotBlessing = true;
+                        yield return new WaitForSecondsRealtime(0.3f); // let the cards draw
+                        Capture($"run{i}_blessing");
                     }
                     if (shots && i < 3 && gm.Current == GameManager.State.Playing)
                     {

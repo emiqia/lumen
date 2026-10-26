@@ -39,7 +39,10 @@ namespace Lumen.Enemies
         /// <summary>Whether a flare would wound it right now (the bot uses this to save fuel).</summary>
         public bool Vulnerable => wounds.CanWound(Time.time);
 
-        bool Enraged => !wounds.CanWound(Time.time) && stunned <= 0f;
+        /// <summary>Charging after a wound. One landed hit sates it and it goes back to the braziers:
+        /// otherwise a 30-damage body glued to the player kills in a few seconds.</summary>
+        public bool Enraged => !wounds.CanWound(Time.time) && stunned <= 0f && !sated;
+        bool sated;
 
         protected override void Think(float dt)
         {
@@ -97,6 +100,7 @@ namespace Lumen.Enemies
                 return;
             }
             stunned = Tuning.devourerStunTime;
+            sated = false;
             bodySprite.color = new Color(1f, 0.6f, 0.6f);
             PixelParticles.Burst(p + Vector2.up * 0.6f, 20, Palette.DevourerEye, 3f, 0.6f);
             CameraRig.Shake(0.3f);
@@ -126,7 +130,7 @@ namespace Lumen.Enemies
 
         protected override void OnTouchPlayer(PlayerFlame player)
         {
-            player.TakeHit(Tuning.devourerDamage, Kind, transform.position);
+            if (player.TakeHit(Tuning.devourerDamage, Kind, transform.position)) sated = true;
         }
     }
 }

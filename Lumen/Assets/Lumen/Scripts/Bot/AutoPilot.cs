@@ -57,6 +57,8 @@ namespace Lumen.Bot
                 if (d < nearestD && LightField.LineOfSight(pos, sp)) { nearestD = d; nearest = s; }
                 if (s.Kind == EnemyKind.Stalker && d < 7f) stalkersNear++;
                 if (d < 3f && s.Kind != EnemyKind.Moth) repel += (pos - sp).normalized * (3f - d);
+                // An enraged Devourer can't be flared: get away from it, as a person would.
+                if (s is Devourer rage && rage.Enraged && d < 7f) repel += (pos - sp).normalized * (7f - d) * 0.6f;
             }
 
             bool flareReady = player.FlareCooldownLeft <= 0f && player.Fuel > tuningCost + 8f;

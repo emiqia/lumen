@@ -18,12 +18,13 @@ namespace Lumen.UI
         const int FuelBarWidth = 100, FuelBarHeight = 7;
         const int PipSize = 8, PipGap = 12;
         // Arrow margins keep it clear of the HUD bands (gauges on top, hints at the bottom).
-        const float EdgeInsetSide = 14f, EdgeInsetTop = 36f, EdgeInsetBottom = 28f;
+        const float EdgeInsetSide = 16f, EdgeInsetTop = 44f, EdgeInsetBottom = 46f;
+        const int ArrowSize = 13;
 
         RectTransform root;
         Camera cam;
         Canvas canvas;
-        Image fuelFill, fuelBack, flareFill, objectiveArrow;
+        Image fuelFill, fuelBack, flareFill, objectiveArrow, hintBand;
         PixelText fuelLabel, flareIcon, floorText, scoreText, brazierText, announceText, subAnnounceText, hintText, warningText;
         readonly List<Image> pipFills = new List<Image>();
         readonly List<GameObject> pipObjects = new List<GameObject>();
@@ -54,7 +55,8 @@ namespace Lumen.UI
             popupLayer = Ui.Stretch(root, "Popups");
 
             // Fuel gauge (top-left): flame icon, bar with quarter ticks, state label underneath.
-            Ui.Box(root, Ui.TopLeft, new Vector2(6, -6), new Vector2(FuelBarWidth + 18, 17), Palette.UiPanel);
+            // The panel also covers the state label underneath, so it never sits on top of the world.
+            Ui.Box(root, Ui.TopLeft, new Vector2(6, -6), new Vector2(FuelBarWidth + 26, 32), Palette.UiPanel);
             Ui.Text(root, "#", Ui.TopLeft, new Vector2(9, -9), 1, PixelText.Align.Left, Palette.FireOrange, 8);
             fuelBack = Ui.Box(root, Ui.TopLeft, new Vector2(18, -10), new Vector2(FuelBarWidth, FuelBarHeight), new Color(0.12f, 0.08f, 0.1f));
             fuelFill = Ui.Box(root, Ui.TopLeft, new Vector2(18, -10), new Vector2(FuelBarWidth, FuelBarHeight), Palette.FireYellow);
@@ -74,7 +76,7 @@ namespace Lumen.UI
             brazierText = Ui.Text(root, "", Ui.Top, new Vector2(0, -6), 1, PixelText.Align.Center, Palette.UiText, 220);
 
             // Edge arrow toward the current objective.
-            objectiveArrow = Ui.Box(root, Ui.Center, Vector2.zero, new Vector2(7, 7), Palette.FireOrange);
+            objectiveArrow = Ui.Box(root, Ui.Center, Vector2.zero, new Vector2(ArrowSize, ArrowSize), Palette.FireOrange);
             objectiveArrow.sprite = SpriteBank.Arrow;
             objectiveArrow.rectTransform.pivot = new Vector2(0.5f, 0.5f);
 
@@ -82,6 +84,7 @@ namespace Lumen.UI
             announceText = Ui.Text(root, "", Ui.Center, new Vector2(0, 40), 3, PixelText.Align.Center, Palette.UiText, 380);
             subAnnounceText = Ui.Text(root, "", Ui.Center, new Vector2(0, 18), 1, PixelText.Align.Center, Palette.UiDim, 380);
             warningText = Ui.Text(root, "", Ui.Bottom, new Vector2(0, 30), 1, PixelText.Align.Center, Palette.UiDanger, 380);
+            hintBand = Ui.Box(root, Ui.Bottom, new Vector2(0, 6), new Vector2(392, 16), Palette.UiPanel);
             hintText = Ui.Text(root, "", Ui.Bottom, new Vector2(0, 10), 1, PixelText.Align.Center, Palette.UiText, 380);
         }
 
@@ -150,8 +153,9 @@ namespace Lumen.UI
             if (gm.Score != shownScore) { if (shownScore >= 0) scorePop = 0.15f; shownScore = gm.Score; }
             displayedScore = Mathf.MoveTowards(displayedScore, gm.Score, Mathf.Max(30f, Mathf.Abs(gm.Score - displayedScore) * 6f) * dt);
             scoreText.Text = Mathf.RoundToInt(displayedScore).ToString();
+            // A brief white flash instead of doubling in size: noticeable, but never the loudest thing on screen.
             scorePop -= dt;
-            scoreText.Scale = scorePop > 0f ? 2 : 1;
+            scoreText.color = scorePop > 0f ? Palette.FireWhite : Palette.FireYellow;
 
             if (gm.Floor != shownFloor) { shownFloor = gm.Floor; floorText.Text = Locale.Get("hud.floor") + " " + gm.Floor; }
 
@@ -172,7 +176,9 @@ namespace Lumen.UI
             announceText.canvasRenderer.SetAlpha(a);
             subAnnounceText.canvasRenderer.SetAlpha(a);
             hintTimer -= dt;
-            hintText.canvasRenderer.SetAlpha(Mathf.Clamp01(hintTimer * 2f));
+            float hintAlpha = Mathf.Clamp01(hintTimer * 2f);
+            hintText.canvasRenderer.SetAlpha(hintAlpha);
+            hintBand.canvasRenderer.SetAlpha(hintAlpha);
 
             UpdatePopups(dt);
         }
@@ -200,7 +206,8 @@ namespace Lumen.UI
             {
                 shownFuelLabel = label;
                 fuelLabel.Text = label;
-                fuelLabel.color = player.IsRefueling ? Palette.FireYellow : Palette.UiDim;
+                // Dimmed is a protective state the player chose: cool "stealth" blue, not disabled grey.
+                fuelLabel.color = player.IsRefueling ? Palette.FireYellow : (Color)Palette.Stealth;
             }
 
             float charge = 1f - player.FlareCooldownLeft / tuning.flareCooldown;
@@ -242,7 +249,10 @@ namespace Lumen.UI
             float bob = Mathf.Sin(Time.unscaledTime * 6f) * 1.5f;
             pos += dir.normalized * bob;
             objectiveArrow.rectTransform.anchoredPosition = new Vector2(Mathf.Round(pos.x), Mathf.Round(pos.y));
-            objectiveArrow.rectTransform.localRotation = Quaternion.Euler(0, 0, Mathf.Atan2(dir.y * size.y, dir.x * size.x) * Mathf.Rad2Deg);
+            // Braziers: rotated orange arrow. Exit: blue diamond (different shape, not just color).
+            objectiveArrow.sprite = gm.ExitOpen ? SpriteBank.ExitMarker : SpriteBank.Arrow;
+            objectiveArrow.rectTransform.localRotation = gm.ExitOpen ? Quaternion.identity
+                : Quaternion.Euler(0, 0, Mathf.Atan2(dir.y * size.y, dir.x * size.x) * Mathf.Rad2Deg);
             objectiveArrow.color = gm.ExitOpen ? Palette.Portal : Palette.FireOrange;
         }
 

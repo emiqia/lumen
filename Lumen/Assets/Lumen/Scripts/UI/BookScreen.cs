@@ -74,6 +74,15 @@ namespace Lumen.UI
             ShowPage();
         }
 
+        /// <summary>Jumps to a page (1-based). Used by the screenshot tool.</summary>
+        public void GoToPage(int number)
+        {
+            page = Mathf.Clamp(number - 1, 0, PageCount - 1);
+            ShowPage();
+        }
+
+        public void CloseSilently() => root.gameObject.SetActive(false);
+
         void Close(bool finished)
         {
             root.gameObject.SetActive(false);
@@ -105,7 +114,10 @@ namespace Lumen.UI
         {
             int n = page + 1;
             title.Text = Locale.Get("book." + n + ".title");
+            // Long titles drop to scale 1 so they never spill off the page.
+            title.Scale = PixelFont.Measure(title.Text) * 2 > PageW - 12 ? 1 : 2;
             body.Text = Ui.Wrap(Locale.Get("book." + n + ".body"), TextChars);
+            Ui.FitHeight(body);
             pageNumber.Text = n + "/" + PageCount;
             hint.Text = page == PageCount - 1 && startMode ? Locale.Get("book.last") + "     " + Locale.Get("book.hint") : Locale.Get("book.hint");
             BuildIllustration(n);

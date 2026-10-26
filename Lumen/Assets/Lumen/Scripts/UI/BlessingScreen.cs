@@ -65,6 +65,8 @@ namespace Lumen.UI
                 if (!has) continue;
                 names[i].Text = Ui.Wrap(Locale.Get(offer[i].NameKey), 17);
                 descs[i].Text = Ui.Wrap(Locale.Get(offer[i].DescKey), 17);
+                Ui.FitHeight(names[i]);
+                Ui.FitHeight(descs[i]);
             }
             root.gameObject.SetActive(true);
             Refresh();
@@ -85,6 +87,14 @@ namespace Lumen.UI
                 root.gameObject.SetActive(false);
                 Chosen?.Invoke(offer[selected]);
             }
+        }
+
+        /// <summary>Takes a card programmatically (used by the bot).</summary>
+        public void Choose(int index)
+        {
+            if (!IsOpen || offer == null || offer.Count == 0) return;
+            root.gameObject.SetActive(false);
+            Chosen?.Invoke(offer[Mathf.Clamp(index, 0, offer.Count - 1)]);
         }
 
         void Refresh()

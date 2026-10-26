@@ -73,6 +73,17 @@ namespace Lumen.UI
             return img;
         }
 
+        /// <summary>
+        /// PixelText centers its lines vertically in its rect. For top-anchored paragraphs, grow the
+        /// rect to the real line count so the text starts at the top and flows down.
+        /// </summary>
+        public static void FitHeight(PixelText t)
+        {
+            int lines = string.IsNullOrEmpty(t.Text) ? 1 : t.Text.Split('\n').Length;
+            var rt = t.rectTransform;
+            rt.sizeDelta = new Vector2(rt.sizeDelta.x, lines * 10 * t.Scale);
+        }
+
         /// <summary>Greedy word wrap for the pixel font, which has no automatic line breaking.</summary>
         public static string Wrap(string text, int maxChars)
         {

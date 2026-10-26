@@ -40,6 +40,8 @@ namespace Lumen.Core
         public bool GameOverVisible => screens.GameOverVisible;
         /// <summary>The run in progress (difficulty, blessings, inventory). Null on the title screen.</summary>
         public RunState Run => run;
+        public FrontEnd FrontEnd => frontEnd;
+        public BookScreen Book => book;
 
         /// <summary>Set by automated playtests: an AI drives the player instead of the keyboard.</summary>
         public System.Func<IPlayerInput> InputOverride { get; set; }
@@ -346,7 +348,16 @@ namespace Lumen.Core
             }
             Current = State.ChoosingBlessing;
             Time.timeScale = 0f;
+            hud.ClearTransient(); // no stray hints under the cards
             blessings.Open(offer);
+            // A bot can't read cards: show them briefly (for screenshots) and take the first.
+            if (InputOverride != null) StartCoroutine(BotPicksBlessing());
+        }
+
+        IEnumerator BotPicksBlessing()
+        {
+            yield return new WaitForSecondsRealtime(1.5f);
+            if (Current == State.ChoosingBlessing) blessings.Choose(0);
         }
 
         void OnBlessingChosen(Blessing blessing)

@@ -134,6 +134,8 @@ namespace Lumen.UI
         }
 
         public void ShowTitle() => SetMode(Mode.Title);
+        public void ShowDifficulty() => SetMode(Mode.Difficulty);
+        public void ShowOptions() => OpenOptions(Mode.Title);
         public void ShowPause() => SetMode(Mode.Pause);
         public void Hide() => SetMode(Mode.Hidden);
 
@@ -176,6 +178,8 @@ namespace Lumen.UI
 
         void Update()
         {
+            // The book has its own hint line; don't overlap it with the menu's.
+            hint.gameObject.SetActive(Current != Mode.Hidden && !book.IsOpen);
             if (Current == Mode.Hidden || book.IsOpen) return;
 
             if (Current == Mode.Title)

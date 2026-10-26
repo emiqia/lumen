@@ -22,6 +22,7 @@ namespace Lumen.Core
             ["hud.floor"] = ("PISO", "FLOOR"),
             ["hud.braziers"] = ("BRASEROS", "BRAZIERS"),
             ["hud.exit"] = ("¡LA SALIDA ESTÁ ABIERTA!", "THE EXIT IS OPEN!"),
+            ["hud.exitShort"] = ("SALIDA ABIERTA", "EXIT OPEN"),
             ["hud.low"] = ("¡TE ESTÁS APAGANDO!", "YOU ARE FADING!"),
             ["hud.relit"] = ("¡UN BRASERO SE APAGÓ!", "A BRAZIER WENT OUT!"),
             ["hud.dimmed"] = ("ATENUADA", "DIMMED"),

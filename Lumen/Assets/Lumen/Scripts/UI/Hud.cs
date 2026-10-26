@@ -159,7 +159,8 @@ namespace Lumen.UI
             if (lit != shownLit || total != shownTotal || gm.ExitOpen != shownExitOpen)
             {
                 shownLit = lit; shownTotal = total; shownExitOpen = gm.ExitOpen;
-                brazierText.Text = gm.ExitOpen ? Locale.Get("hud.exit") : Locale.Get("hud.braziers") + " " + lit + "/" + total;
+                // Short label up top; the full sentence is the one-time banner in the center.
+                brazierText.Text = gm.ExitOpen ? Locale.Get("hud.exitShort") : Locale.Get("hud.braziers") + " " + lit + "/" + total;
                 brazierText.color = gm.ExitOpen ? Palette.Portal : Palette.UiText;
                 for (int i = 0; i < pipFills.Count; i++) pipFills[i].enabled = i < lit;
             }

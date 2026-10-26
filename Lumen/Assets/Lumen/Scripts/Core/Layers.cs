@@ -15,7 +15,10 @@ namespace Lumen.Core
         static int Resolve(string name, int fallback)
         {
             int layer = LayerMask.NameToLayer(name);
-            return layer >= 0 ? layer : fallback;
+            if (layer >= 0) return layer;
+            // Physics queries silently misbehave on the wrong layer, so make the misconfiguration loud.
+            Debug.LogError($"[Lumen] Physics layer '{name}' is missing; run Lumen > Setup Project. Falling back to index {fallback}.");
+            return fallback;
         }
     }
 }

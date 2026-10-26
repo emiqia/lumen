@@ -19,14 +19,18 @@ namespace Lumen.EditorTools
         static readonly string[] RequiredLayers = { "Walls", "Player", "Enemies", "Pickups" };
 
         [MenuItem("Lumen/Setup Project")]
-        public static void Setup()
+        public static void Setup() => TrySetup();
+
+        /// <summary>Returns false (and changes nothing else) if the physics layers can't be claimed.</summary>
+        static bool TrySetup()
         {
-            EnsureLayers();
+            if (!EnsureLayers()) return false;
             EnsureAssets();
             EnsureScene();
             ConfigurePlayer();
             AssetDatabase.SaveAssets();
             Debug.Log("[Lumen] Project setup complete.");
+            return true;
         }
 
         [MenuItem("Lumen/Build/Linux")]
@@ -37,13 +41,12 @@ namespace Lumen.EditorTools
 
         public static void SetupAndBuildLinux()
         {
-            Setup();
-            BuildLinux();
+            if (TrySetup()) BuildLinux();
         }
 
         public static void SetupAndBuildAll()
         {
-            Setup();
+            if (!TrySetup()) return;
             BuildLinux();
             BuildWindows();
         }
@@ -68,7 +71,7 @@ namespace Lumen.EditorTools
             Debug.Log($"[Lumen] Built {target} -> {path} ({report.summary.totalSize / (1024 * 1024)} MB)");
         }
 
-        static void EnsureLayers()
+        static bool EnsureLayers()
         {
             var tagManager = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
             var layers = tagManager.FindProperty("layers");
@@ -83,10 +86,11 @@ namespace Lumen.EditorTools
                     // silently break physics queries, so refuse to continue.
                     Debug.LogError($"[Lumen] Layer {8 + i} is already used by '{prop.stringValue}'. Free it and run Setup again.");
                     if (Application.isBatchMode) EditorApplication.Exit(1);
-                    return;
+                    return false;
                 }
             }
             tagManager.ApplyModifiedProperties();
+            return true;
         }
 
         static void EnsureAssets()

@@ -48,7 +48,7 @@ namespace Lumen.FX
             GameEvents.BrazierLit += p => Play(brazier, 0.6f);
             GameEvents.BrazierExtinguished += p => Play(extinguish, 0.6f);
             GameEvents.PlayerHit += (p, a, k) => Play(hit, 0.7f);
-            GameEvents.EnemyKilled += (p, k) => Play(kill, 0.45f, k == EnemyKind.Devourer ? 0.6f : UnityEngine.Random.Range(0.9f, 1.2f));
+            GameEvents.EnemyKilled += (p, k, _) => Play(kill, 0.45f, k == EnemyKind.Devourer ? 0.6f : UnityEngine.Random.Range(0.9f, 1.2f));
             GameEvents.ExitOpened += () => Play(exitOpen, 0.6f);
             GameEvents.FloorCleared += f => Play(floorClear, 0.6f);
             GameEvents.PlayerDied += c => Play(death, 0.7f);

@@ -35,6 +35,8 @@ namespace Lumen.Enemies
         protected float speedMultiplier = 1f;
         protected float stunned;
         protected float burn; // accumulated seconds in burning light
+        /// <summary>True while light is burning this shade (updated each frame by UpdateBurn).</summary>
+        protected bool Burning { get; private set; }
 
         readonly List<Vector2Int> path = new List<Vector2Int>();
         int pathIndex;
@@ -160,14 +162,16 @@ namespace Lumen.Enemies
         /// <summary>Default light behaviour: brazier zones repel, the player's bright core burns.</summary>
         protected virtual void UpdateBurn(float dt)
         {
-            bool burning = LightField.PlayerBurns(transform.position) || LightField.InBrazierSafeZone(transform.position, out _);
+            bool byPlayer = LightField.PlayerBurns(transform.position);
+            bool burning = byPlayer || LightField.InBrazierSafeZone(transform.position, out _);
+            Burning = burning;
             burn = burning ? burn + dt : Mathf.Max(0f, burn - dt * 0.5f);
             float t = Mathf.Clamp01(burn / Tuning.stalkerBurnTime);
             bodySprite.color = Color.Lerp(Color.white, new Color(1f, 0.55f, 0.4f), t);
             if (burning && Random.value < dt * 25f)
                 PixelParticles.Emit((Vector2)transform.position + Random.insideUnitCircle * 0.3f + Vector2.up * 0.4f,
                     Vector2.up, Palette.ShadeEdge, 0.6f, false, 1f);
-            if (burn >= Tuning.stalkerBurnTime) Kill();
+            if (burn >= Tuning.stalkerBurnTime) Kill(byPlayer ? KillCause.PlayerLight : KillCause.Brazier);
         }
 
         /// <summary>Flares kill up close and only stun further out, so they reward commitment.</summary>
@@ -178,7 +182,7 @@ namespace Lumen.Enemies
             float d2 = (p - origin).sqrMagnitude;
             if (d2 > radius * radius || !LightField.LineOfSight(origin, p)) return;
             float kill = Tuning.flareKillRadius;
-            if (d2 <= kill * kill) Kill();
+            if (d2 <= kill * kill) Kill(KillCause.Flare);
             else Stun(Tuning.flareStunTime);
         }
 
@@ -188,13 +192,13 @@ namespace Lumen.Enemies
             PixelParticles.Burst((Vector2)transform.position + Vector2.up * 0.5f, 6, Palette.FireWhite, 1.5f, 0.35f);
         }
 
-        public virtual void Kill()
+        public virtual void Kill(KillCause cause)
         {
             if (IsDead) return;
             IsDead = true;
             PixelParticles.Burst((Vector2)transform.position + Vector2.up * 0.4f, 28, new Color(0.15f, 0.1f, 0.2f), 3f, 0.9f, false, 0.6f, 1f, 0.3f);
             PixelParticles.Burst((Vector2)transform.position + Vector2.up * 0.4f, 8, Palette.ShadeEye, 2f, 0.5f);
-            GameEvents.RaiseEnemyKilled(transform.position, Kind);
+            GameEvents.RaiseEnemyKilled(transform.position, Kind, cause);
             Destroy(gameObject);
         }
 

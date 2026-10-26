@@ -101,7 +101,7 @@ namespace Lumen.Enemies
             bodySprite.color = new Color(1f, 0.6f, 0.6f);
             PixelParticles.Burst(p + Vector2.up * 0.6f, 20, Palette.DevourerEye, 3f, 0.6f);
             CameraRig.Shake(0.3f);
-            if (wounds.Wounds >= Tuning.devourerFlaresToKill) Kill();
+            if (wounds.Wounds >= Tuning.devourerFlaresToKill) Kill(KillCause.Flare);
         }
 
         protected override void Update()

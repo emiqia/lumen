@@ -35,7 +35,7 @@ namespace Lumen.Core
 
         void OnEmber(Vector2 p) => Add(tuning.scoreEmber, p);
         void OnBrazier(Vector2 p) => Add(tuning.scoreBrazier, p);
-        void OnKill(Vector2 p, EnemyKind kind) => Add(ValueOf(kind), p);
+        void OnKill(Vector2 p, EnemyKind kind, KillCause _) => Add(ValueOf(kind), p);
 
         public int ValueOf(EnemyKind kind) => kind switch
         {

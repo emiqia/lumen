@@ -38,6 +38,7 @@ namespace Lumen.Bot
             public int braziersExtinguished;
             public int darknessSpawns;
             public int killsStalker, killsMoth, killsDevourer;
+            public int killsByFlare, killsByLight, killsByBrazier;
             public int hitsStalker, hitsMoth, hitsDevourer;
             public float minFuel = 999f;
             public List<FloorRecord> floors = new List<FloorRecord>();
@@ -58,9 +59,12 @@ namespace Lumen.Bot
                 if (floor != null) floor.flaresUsed++;
             };
             GameEvents.BrazierExtinguished += _ => { if (Current != null) Current.braziersExtinguished++; };
-            GameEvents.EnemyKilled += (_, k) =>
+            GameEvents.EnemyKilled += (_, k, cause) =>
             {
                 if (Current == null) return;
+                if (cause == KillCause.Flare) Current.killsByFlare++;
+                else if (cause == KillCause.PlayerLight) Current.killsByLight++;
+                else Current.killsByBrazier++;
                 if (k == EnemyKind.Stalker) Current.killsStalker++;
                 else if (k == EnemyKind.Moth) Current.killsMoth++;
                 else Current.killsDevourer++;

@@ -7,6 +7,9 @@ namespace Lumen.Level
 
     public enum EnemyKind { Stalker, Moth, Devourer }
 
+    /// <summary>What killed a shade: tells telemetry whether full light works as a weapon.</summary>
+    public enum KillCause { Flare, PlayerLight, Brazier }
+
     public struct EnemySpawn
     {
         public EnemyKind Kind;

@@ -72,7 +72,7 @@ namespace Lumen.Bot
 
             if (shots)
             {
-                GameEvents.EnemyKilled += (_, k) => Mark("kill_" + k);
+                GameEvents.EnemyKilled += (_, k, __) => Mark("kill_" + k);
                 GameEvents.BrazierLit += _ => Mark("brazier_lit");
                 GameEvents.BrazierExtinguished += _ => Mark("brazier_out");
                 GameEvents.ExitOpened += () => Mark("exit_open");

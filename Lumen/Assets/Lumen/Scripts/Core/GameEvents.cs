@@ -11,7 +11,7 @@ namespace Lumen.Core
     public static class GameEvents
     {
         public static event Action<Vector2, float> Flare;              // position, radius
-        public static event Action<Vector2, EnemyKind> EnemyKilled;
+        public static event Action<Vector2, EnemyKind, KillCause> EnemyKilled;
         public static event Action<Vector2, float, EnemyKind> PlayerHit; // position, fuel lost, source
         public static event Action<Vector2> EmberCollected;
         public static event Action<Vector2> BrazierLit;
@@ -25,7 +25,7 @@ namespace Lumen.Core
         public static event Action<int, Vector2> ScoreGained;           // amount, world position
 
         public static void RaiseFlare(Vector2 p, float r) => Flare?.Invoke(p, r);
-        public static void RaiseEnemyKilled(Vector2 p, EnemyKind k) => EnemyKilled?.Invoke(p, k);
+        public static void RaiseEnemyKilled(Vector2 p, EnemyKind k, KillCause c) => EnemyKilled?.Invoke(p, k, c);
         public static void RaisePlayerHit(Vector2 p, float amount, EnemyKind k) => PlayerHit?.Invoke(p, amount, k);
         public static void RaiseEmberCollected(Vector2 p) => EmberCollected?.Invoke(p);
         public static void RaiseBrazierLit(Vector2 p) => BrazierLit?.Invoke(p);

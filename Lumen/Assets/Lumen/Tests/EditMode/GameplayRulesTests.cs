@@ -111,7 +111,7 @@ namespace Lumen.Tests
         {
             GameEvents.RaiseEmberCollected(Vector2.zero);
             GameEvents.RaiseBrazierLit(Vector2.zero);
-            GameEvents.RaiseEnemyKilled(Vector2.zero, EnemyKind.Devourer);
+            GameEvents.RaiseEnemyKilled(Vector2.zero, EnemyKind.Devourer, KillCause.Flare);
             Assert.AreEqual(tuning.scoreEmber + tuning.scoreBrazier + tuning.scoreDevourer, score.Score);
         }
 
@@ -119,7 +119,7 @@ namespace Lumen.Tests
         public void NothingCounts_OutsideARun()
         {
             score.Counting = false;
-            GameEvents.RaiseEnemyKilled(Vector2.zero, EnemyKind.Stalker);
+            GameEvents.RaiseEnemyKilled(Vector2.zero, EnemyKind.Stalker, KillCause.Flare);
             Assert.AreEqual(0, score.Score);
         }
 
@@ -128,7 +128,7 @@ namespace Lumen.Tests
         {
             int popped = 0;
             GameEvents.ScoreGained += (amount, _) => popped += amount;
-            GameEvents.RaiseEnemyKilled(Vector2.zero, EnemyKind.Moth);
+            GameEvents.RaiseEnemyKilled(Vector2.zero, EnemyKind.Moth, KillCause.Flare);
             Assert.AreEqual(tuning.scoreMoth, popped);
         }
 

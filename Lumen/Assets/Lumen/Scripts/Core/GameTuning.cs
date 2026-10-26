@@ -15,6 +15,11 @@ namespace Lumen.Core
         public float dimMoveSpeed = 3.1f;
         public float acceleration = 40f;
 
+        [Header("Sprint (costs light)")]
+        public float sprintSpeedMultiplier = 1.6f;
+        public float sprintDrainMultiplier = 3f;   // burns this much faster than full light
+        public float sprintLightBoost = 1.2f;      // the flame flares up: enemies see you from farther
+
         [Header("Fuel (= health = time)")]
         public float maxFuel = 100f;
         public float drainBright = 1.5f;
@@ -25,6 +30,8 @@ namespace Lumen.Core
         public float floorCarryBonus = 15f;    // fuel added when entering the next floor
         public float floorCarryMinimum = 45f;  // never start a floor below this
         public float deathCauseWindow = 3f;    // dying this soon after a hit blames the enemy
+        public int extraLives = 0;             // granted by the "Segunda chispa" blessing
+        public float reviveFuel = 35f;
 
         [Header("Player light")]
         public float minLightRadius = 3.2f;
@@ -72,6 +79,18 @@ namespace Lumen.Core
         public float devourerEnragedSpeed = 1.6f;  // ...and charges at this multiplier (still slower than you)
         public float devourerExtinguishTime = 2.5f;
 
+        [Header("Items")]
+        public float lureDuration = 7f;        // a thrown decoy shines this long
+        public float lureAttractRadius = 11f;  // stalkers within this distance go investigate
+        public float lureThrowDistance = 3.5f;
+
+        [Header("Biome hazards")]
+        public float waterSprintDrain = 9f;    // extra fuel/s when running through water (walking is free)
+        public float windGustDim = 0.45f;      // light radius multiplier while a gust hits you
+        public float windGustPush = 2.2f;
+        public float doorOpenTime = 7f;
+        public float doorClosedTime = 4f;
+
         [Header("Pressure")]
         public float darknessSpawnInterval = 40f;    // a new stalker emerges if the floor drags on
         public float darknessSpawnMinInterval = 22f;
@@ -99,7 +118,9 @@ namespace Lumen.Core
         public float FloorParTime(int floor) => floorParBase + floorParPerFloor * Mathf.Min(floor, floorParCap);
 
         static GameTuning instance;
-        public static GameTuning I
+
+        /// <summary>The designer-edited asset (never modified at runtime).</summary>
+        public static GameTuning Base
         {
             get
             {
@@ -111,5 +132,13 @@ namespace Lumen.Core
                 return instance;
             }
         }
+
+        /// <summary>
+        /// The run-local copy with difficulty and blessings applied, set by the GameManager while a
+        /// run is in progress. Gameplay reads <see cref="I"/> and gets the right numbers either way.
+        /// </summary>
+        public static GameTuning Active { get; set; }
+
+        public static GameTuning I => Active != null ? Active : Base;
     }
 }

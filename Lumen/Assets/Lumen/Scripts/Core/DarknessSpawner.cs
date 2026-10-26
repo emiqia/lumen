@@ -12,10 +12,13 @@ namespace Lumen.Core
     /// </summary>
     public class DarknessSpawner
     {
-        readonly GameTuning tuning;
+        GameTuning tuning;
         float timer;
 
         public DarknessSpawner(GameTuning tuning) => this.tuning = tuning;
+
+        /// <summary>Swapped per run so difficulty multipliers apply.</summary>
+        public GameTuning Tuning { get => tuning; set => tuning = value; }
 
         public void Reset() => timer = 0f;
 

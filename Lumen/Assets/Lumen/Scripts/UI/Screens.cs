@@ -92,7 +92,8 @@ namespace Lumen.UI
 
         static string SettingsLine() =>
             Locale.Get("settings.shake") + " " + Locale.Get(SaveData.ScreenShake ? "settings.on" : "settings.off") + "    " +
-            Locale.Get("settings.brightness") + " " + Mathf.RoundToInt(SaveData.Brightness * 100f) + "%";
+            Locale.Get("settings.brightness") + " " + Mathf.RoundToInt(SaveData.Brightness * 100f) + "%    " +
+            Locale.Get("settings.colorblind") + " " + Locale.Get(SaveData.Colorblind ? "settings.on" : "settings.off");
 
         public void ShowGameOver(string causeKey, int score, int floor, float time, bool record)
         {

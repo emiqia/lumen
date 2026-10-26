@@ -374,6 +374,7 @@ namespace Lumen.Core
         {
             if (input.Shake) SaveData.ScreenShake = !SaveData.ScreenShake;
             else if (input.Brightness) { SaveData.CycleBrightness(); postFx.ApplyBrightness(); }
+            else if (input.Colorblind) SaveData.Colorblind = !SaveData.Colorblind;
             else return false;
             Sfx.I?.Blip();
             return true;

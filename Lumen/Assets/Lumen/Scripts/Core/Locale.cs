@@ -14,8 +14,9 @@ namespace Lumen.Core
             ["title.floor"] = ("PISO", "FLOOR"),
             ["title.controls"] = ("WASD MOVER   SHIFT ATENUAR   ESPACIO DESTELLO", "WASD MOVE   SHIFT DIM   SPACE FLARE"),
             ["title.quit"] = ("ESC: SALIR", "ESC: QUIT"),
-            ["settings.shake"] = ("T: TEMBLOR", "T: SCREEN SHAKE"),
+            ["settings.shake"] = ("T: TEMBLOR", "T: SHAKE"),
             ["settings.brightness"] = ("B: BRILLO", "B: BRIGHTNESS"),
+            ["settings.colorblind"] = ("C: DALTÓNICO", "C: COLORBLIND"),
             ["settings.on"] = ("SÍ", "ON"),
             ["settings.off"] = ("NO", "OFF"),
 

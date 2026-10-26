@@ -6,12 +6,12 @@ namespace Lumen.UI
     /// <summary>One frame of menu/meta input (keyboard + gamepad), read in a single place.</summary>
     public readonly struct MenuInput
     {
-        public readonly bool Confirm, Back, Pause, Language, MainMenu, Retry, Shake, Brightness;
+        public readonly bool Confirm, Back, Pause, Language, MainMenu, Retry, Shake, Brightness, Colorblind;
 
-        MenuInput(bool confirm, bool back, bool pause, bool language, bool mainMenu, bool retry, bool shake, bool brightness)
+        MenuInput(bool confirm, bool back, bool pause, bool language, bool mainMenu, bool retry, bool shake, bool brightness, bool colorblind)
         {
             Confirm = confirm; Back = back; Pause = pause; Language = language;
-            MainMenu = mainMenu; Retry = retry; Shake = shake; Brightness = brightness;
+            MainMenu = mainMenu; Retry = retry; Shake = shake; Brightness = brightness; Colorblind = colorblind;
         }
 
         public static MenuInput Read()
@@ -30,7 +30,8 @@ namespace Lumen.UI
                 // Gamepad retries with Start (Confirm): A is the flare and gets mashed while dying.
                 retry: K(k => k.rKey),
                 shake: K(k => k.tKey) || P(p => p.leftShoulder),
-                brightness: K(k => k.bKey) || P(p => p.rightShoulder));
+                brightness: K(k => k.bKey) || P(p => p.rightShoulder),
+                colorblind: K(k => k.cKey) || P(p => p.buttonWest));
         }
     }
 }

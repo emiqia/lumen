@@ -26,8 +26,7 @@ namespace Lumen.Enemies
 
         public static Moth Create(Vector2 pos, Transform parent)
         {
-            var moth = Build<Moth>("Moth", pos, parent, SpriteBank.Moth, SpriteBank.MothGlow, 0.2f, 14f,
-                new Color(1f, 0.95f, 0.8f, 0.18f), 0.2f);
+            var moth = Build<Moth>("Moth", pos, parent, SpriteBank.Moth, new[] { SpriteBank.MothGlow }, 0.2f, 14f, 0.18f, 0.2f);
             // Pale wings catch any glimmer: drawn unlit but dimmed, so a moth reads as a faint pale
             // flutter in the dark instead of a brown pebble (and you see it coming, as intended).
             moth.bodySprite.sharedMaterial = LumenAssets.I.Unlit;

@@ -11,9 +11,28 @@ namespace Lumen.Core
         const string KeyRuns = "lumen.runs";
         const string KeyShake = "lumen.shake";
         const string KeyBrightness = "lumen.brightness";
+        const string KeyColorblind = "lumen.colorblind";
 
         /// <summary>Brightness steps offered in the menus (multiplier on ambient light).</summary>
-        public static readonly float[] BrightnessSteps = { 0.8f, 1f, 1.25f, 1.5f, 1.8f };
+        public static readonly float[] BrightnessSteps = { 0.8f, 1f, 1.3f, 1.7f, 2.1f, 2.5f };
+
+        /// <summary>Swaps the red/green enemy eye pair for magenta/cyan.</summary>
+        static int colorblindCache = -1; // read every frame by every enemy: don't hit PlayerPrefs each time
+
+        public static bool Colorblind
+        {
+            get
+            {
+                if (colorblindCache < 0) colorblindCache = PlayerPrefs.GetInt(KeyColorblind, 0);
+                return colorblindCache == 1;
+            }
+            set
+            {
+                colorblindCache = value ? 1 : 0;
+                PlayerPrefs.SetInt(KeyColorblind, colorblindCache);
+                PlayerPrefs.Save();
+            }
+        }
 
         public static int BestScore => PlayerPrefs.GetInt(KeyBestScore, 0);
         public static int BestFloor => PlayerPrefs.GetInt(KeyBestFloor, 0);

@@ -24,8 +24,7 @@ namespace Lumen.Enemies
         float alertFlash;
 
         public static Stalker Create(Vector2 pos, Transform parent) =>
-            Build<Stalker>("Stalker", pos, parent, SpriteBank.StalkerBody, SpriteBank.StalkerEyes, 0.3f, 6f,
-                new Color(1f, 0.2f, 0.33f, 0.28f), 0.38f);
+            Build<Stalker>("Stalker", pos, parent, SpriteBank.StalkerBody, SpriteBank.StalkerEyes, 0.3f, 6f, 0.28f, 0.38f);
 
         protected override void Awake()
         {

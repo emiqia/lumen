@@ -24,8 +24,7 @@ namespace Lumen.Enemies
 
         public static Devourer Create(Vector2 pos, Transform parent)
         {
-            var d = Build<Devourer>("Devourer", pos, parent, SpriteBank.DevourerBody, SpriteBank.DevourerEyes, 0.55f, 4f,
-                new Color(0.72f, 1f, 0.24f, 0.22f), 0.62f);
+            var d = Build<Devourer>("Devourer", pos, parent, SpriteBank.DevourerBody, SpriteBank.DevourerEyes, 0.55f, 4f, 0.22f, 0.62f);
             d.body.mass = 20f;
             d.shadowSprite.transform.localScale = new Vector3(2f, 1.6f, 1f);
             return d;

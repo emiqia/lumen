@@ -13,16 +13,19 @@ namespace Lumen.Art
 
         public static Sprite[] Player { get; private set; }
         public static Sprite[] StalkerBody { get; private set; }
-        public static Sprite StalkerEyes { get; private set; }
+        /// <summary>[0] = normal palette, [1] = colorblind-safe palette.</summary>
+        public static Sprite[] StalkerEyes { get; private set; }
         public static Sprite[] Moth { get; private set; }
         public static Sprite MothGlow { get; private set; }
         public static Sprite[] DevourerBody { get; private set; }
-        public static Sprite DevourerEyes { get; private set; }
+        /// <summary>[0] = normal palette, [1] = colorblind-safe palette.</summary>
+        public static Sprite[] DevourerEyes { get; private set; }
         public static Sprite Brazier { get; private set; }
         public static Sprite[] BrazierFire { get; private set; }
         public static Sprite BrazierCoals { get; private set; }
         public static Sprite CandleFlame { get; private set; }
         public static Sprite Arrow { get; private set; }
+        public static Sprite ExitMarker { get; private set; }
         public static Sprite[] Ember { get; private set; }
         public static Sprite PortalClosed { get; private set; }
         public static Sprite[] PortalOpen { get; private set; }
@@ -44,16 +47,25 @@ namespace Lumen.Art
 
             Player = Frames(6, i => PlayerFrame(i), "player", new Vector2(0.5f, 0.25f));
             StalkerBody = Frames(4, i => StalkerFrame(i), "stalker", new Vector2(0.5f, 0.2f));
-            StalkerEyes = Make(StalkerEyesCanvas(), "stalker_eyes", new Vector2(0.5f, 0.2f));
+            StalkerEyes = new[]
+            {
+                Make(StalkerEyesCanvas(Palette.ShadeEye), "stalker_eyes", new Vector2(0.5f, 0.2f)),
+                Make(StalkerEyesCanvas(Palette.ShadeEyeAlt), "stalker_eyes_cb", new Vector2(0.5f, 0.2f)),
+            };
             Moth = Frames(2, i => MothFrame(i), "moth", new Vector2(0.5f, 0.5f));
             MothGlow = Make(MothGlowCanvas(), "moth_glow", new Vector2(0.5f, 0.5f));
             DevourerBody = Frames(4, i => DevourerFrame(i), "devourer", new Vector2(0.5f, 0.15f));
-            DevourerEyes = Make(DevourerEyesCanvas(), "devourer_eyes", new Vector2(0.5f, 0.15f));
+            DevourerEyes = new[]
+            {
+                Make(DevourerEyesCanvas(Palette.DevourerEye), "devourer_eyes", new Vector2(0.5f, 0.15f)),
+                Make(DevourerEyesCanvas(Palette.DevourerEyeAlt), "devourer_eyes_cb", new Vector2(0.5f, 0.15f)),
+            };
             Brazier = Make(BrazierCanvas(), "brazier", new Vector2(0.5f, 0.2f));
             BrazierFire = Frames(4, i => BrazierFireFrame(i), "brazier_fire", new Vector2(0.5f, 0.2f));
             BrazierCoals = Make(BrazierCoalsCanvas(), "brazier_coals", new Vector2(0.5f, 0.2f));
             CandleFlame = Make(CandleFlameCanvas(), "candle_flame", new Vector2(0.5f, 0.5f));
             Arrow = Make(ArrowCanvas(), "arrow", new Vector2(0.5f, 0.5f));
+            ExitMarker = Make(DiamondCanvas(), "exit_marker", new Vector2(0.5f, 0.5f));
             Ember = Frames(4, i => EmberFrame(i), "ember", new Vector2(0.5f, 0.5f));
             PortalClosed = Make(PortalCanvas(false, 0), "portal_closed", new Vector2(0.5f, 0.5f));
             PortalOpen = Frames(4, i => PortalCanvas(true, i), "portal_open", new Vector2(0.5f, 0.5f));
@@ -162,42 +174,48 @@ namespace Lumen.Art
             return p;
         }
 
-        static PixelCanvas StalkerEyesCanvas()
+        // Horizontal 3x1 slits with a white-hot center: identifiable by shape and value, not only hue.
+        static PixelCanvas StalkerEyesCanvas(Color32 eye)
         {
             var p = new PixelCanvas(16, 16);
-            p.Rect(5, 9, 2, 1, Palette.ShadeEye);
-            p.Rect(9, 9, 2, 1, Palette.ShadeEye);
-            p.Set(5, 10, new Color32(255, 120, 140, 255));
-            p.Set(10, 10, new Color32(255, 120, 140, 255));
+            p.Rect(4, 9, 3, 1, eye);
+            p.Rect(9, 9, 3, 1, eye);
+            p.Set(5, 9, Palette.FireWhite);
+            p.Set(10, 9, Palette.FireWhite);
             return p;
         }
 
         // ---------------------------------------------------------------- Moth
+        // Wide triangular forewings (14 px span when open) and feathery antennae: reads as a moth,
+        // not as a pill or a jar, even in silhouette.
         static PixelCanvas MothFrame(int frame)
         {
-            var p = new PixelCanvas(12, 12);
-            float open = frame == 0 ? 1f : 0.45f;
-            // wings
-            p.Ellipse(6 - 3.2f * open, 7, 3f * open + 0.6f, 3.2f, Palette.MothWing);
-            p.Ellipse(6 + 3.2f * open, 7, 3f * open + 0.6f, 3.2f, Palette.MothWing);
-            p.Ellipse(6 - 2.6f * open, 4, 2.2f * open + 0.5f, 2f, Palette.MothWingDark);
-            p.Ellipse(6 + 2.6f * open, 4, 2.2f * open + 0.5f, 2f, Palette.MothWingDark);
-            // body
-            p.Rect(5, 2, 2, 8, Palette.MothBody);
-            p.Set(4, 10, Palette.MothBody); p.Set(7, 10, Palette.MothBody); // antennae
-            p.Set(3, 11, Palette.MothBody); p.Set(8, 11, Palette.MothBody);
-            if (open > 0.5f)
-            {
-                p.Set(2, 7, Palette.MothBody); p.Set(9, 7, Palette.MothBody); // wing spots
-            }
+            var p = new PixelCanvas(16, 12);
+            float open = frame == 0 ? 1f : 0.5f;
+            const float cx = 7.5f;
+            for (int x = 0; x < 16; x++)
+                for (int y = 0; y < 12; y++)
+                {
+                    float dx = Mathf.Abs(x + 0.5f - cx) / open; // horizontal distance, squeezed when closed
+                    // forewing: wide at the top, tapering down
+                    bool fore = y >= 4 && y <= 10 && dx <= 7f && dx >= 0.8f && (10 - y) * 1.1f >= dx - 2.5f;
+                    // hindwing: small rounded lobe under the forewing
+                    bool hind = y >= 1 && y < 5 && dx >= 0.8f && dx <= 4.2f - (4 - y) * 0.6f;
+                    if (fore) p.Set(x, y, dx > 5.5f || y == 10 ? Palette.MothWingDark : Palette.MothWing);
+                    else if (hind) p.Set(x, y, Palette.MothWingDark);
+                }
+            p.Rect(7, 1, 2, 9, Palette.MothBody);                      // body
+            p.Set(6, 10, Palette.MothBody); p.Set(5, 11, Palette.MothBody); // antennae
+            p.Set(9, 10, Palette.MothBody); p.Set(10, 11, Palette.MothBody);
+            if (open > 0.75f) { p.Set(3, 8, Palette.MothBody); p.Set(12, 8, Palette.MothBody); } // eye spots
             return p;
         }
 
         static PixelCanvas MothGlowCanvas()
         {
-            var p = new PixelCanvas(12, 12);
-            p.Set(5, 9, new Color32(255, 240, 200, 255));
-            p.Set(6, 9, new Color32(255, 240, 200, 255));
+            var p = new PixelCanvas(16, 12);
+            p.Set(7, 9, new Color32(255, 240, 200, 255));
+            p.Set(8, 9, new Color32(255, 240, 200, 255));
             return p;
         }
 
@@ -226,10 +244,9 @@ namespace Lumen.Art
             return p;
         }
 
-        static PixelCanvas DevourerEyesCanvas()
+        static PixelCanvas DevourerEyesCanvas(Color32 e)
         {
             var p = new PixelCanvas(24, 24);
-            Color32 e = Palette.DevourerEye;
             p.Rect(7, 12, 2, 2, e); p.Rect(11, 13, 2, 2, e); p.Rect(15, 12, 2, 2, e);
             p.Set(9, 15, e); p.Set(14, 15, e);
             return p;
@@ -280,12 +297,24 @@ namespace Lumen.Art
 
         static PixelCanvas ArrowCanvas()
         {
-            var p = new PixelCanvas(9, 9);
-            for (int x = 1; x < 8; x++)
+            var p = new PixelCanvas(13, 13);
+            for (int x = 1; x < 12; x++)
             {
-                int half = (7 - x) / 2;
-                for (int y = 4 - half; y <= 4 + half; y++) p.Set(x, y, Color.white);
+                int half = (11 - x) / 2;
+                for (int y = 6 - half; y <= 6 + half; y++) p.Set(x, y, Color.white);
             }
+            p.Outline(new Color32(10, 8, 14, 255));
+            return p;
+        }
+
+        // The exit gets a different *shape* (diamond), so it is not told apart by color alone.
+        static PixelCanvas DiamondCanvas()
+        {
+            var p = new PixelCanvas(13, 13);
+            for (int x = 1; x < 12; x++)
+                for (int y = 1; y < 12; y++)
+                    if (Mathf.Abs(x - 6) + Mathf.Abs(y - 6) <= 5) p.Set(x, y, Color.white);
+            p.Set(6, 6, new Color32(10, 8, 14, 255)); // hollow center reads as a portal ring
             p.Outline(new Color32(10, 8, 14, 255));
             return p;
         }

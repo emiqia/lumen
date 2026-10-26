@@ -43,8 +43,9 @@ namespace Lumen.Enemies
         Vector2Int pathGoal;
         float repathTimer;
 
-        protected static T Build<T>(string name, Vector2 pos, Transform parent, Sprite[] frames, Sprite eyes, float radius, float fps,
-                                    Color haloColor, float haloHeight)
+        /// <param name="eyes">Eye sprite per palette: [0] normal, [1] colorblind-safe.</param>
+        protected static T Build<T>(string name, Vector2 pos, Transform parent, Sprite[] frames, Sprite[] eyes, float radius, float fps,
+                                    float haloAlpha, float haloHeight)
             where T : Shade
         {
             var go = new GameObject(name);
@@ -73,23 +74,22 @@ namespace Lumen.Enemies
             anim.frames = frames;
             anim.fps = fps;
 
-            SpriteRenderer eyeSr = null;
+            SpriteRenderer eyeSr = null, halo = null;
             if (eyes != null)
             {
                 eyeSr = new GameObject("Eyes").AddComponent<SpriteRenderer>();
                 eyeSr.transform.SetParent(sr.transform, false);
-                eyeSr.sprite = eyes;
+                eyeSr.sprite = eyes[0];
                 eyeSr.sharedMaterial = LumenAssets.I.Unlit; // glowing eyes in the dark
                 eyeSr.sortingOrder = 1;
 
                 // Soft unlit halo so the eyes survive the vignette at the screen edges.
-                var halo = new GameObject("EyeHalo").AddComponent<SpriteRenderer>();
+                halo = new GameObject("EyeHalo").AddComponent<SpriteRenderer>();
                 halo.transform.SetParent(eyeSr.transform, false);
                 halo.transform.localPosition = new Vector3(0, haloHeight, 0);
                 halo.transform.localScale = Vector3.one * 0.55f;
                 halo.sprite = SpriteBank.SoftCircle;
                 halo.sharedMaterial = LumenAssets.I.Unlit;
-                halo.color = haloColor;
                 halo.sortingOrder = 0;
             }
 
@@ -97,15 +97,32 @@ namespace Lumen.Enemies
             // Factory pattern used by every actor: build the hierarchy, add the component,
             // then hand it its references through Setup (Awake only caches its own components).
             var shade = go.AddComponent<T>();
-            shade.Setup(sr, eyeSr, shadow);
+            shade.Setup(sr, eyeSr, halo, shadow, eyes, haloAlpha);
             return shade;
         }
 
-        void Setup(SpriteRenderer body, SpriteRenderer eyes, SpriteRenderer shadow)
+        SpriteRenderer eyeHalo;
+        Sprite[] eyeVariants;
+        float haloAlpha;
+
+        void Setup(SpriteRenderer body, SpriteRenderer eyes, SpriteRenderer halo, SpriteRenderer shadow, Sprite[] variants, float alpha)
         {
             bodySprite = body;
             eyeSprite = eyes;
+            eyeHalo = halo;
             shadowSprite = shadow;
+            eyeVariants = variants;
+            haloAlpha = alpha;
+            RefreshEyes();
+        }
+
+        /// <summary>Applies the current palette (normal or colorblind) to the eyes and their halo.</summary>
+        void RefreshEyes()
+        {
+            if (eyeSprite == null) return;
+            eyeSprite.sprite = eyeVariants[SaveData.Colorblind && eyeVariants.Length > 1 ? 1 : 0];
+            Color c = Palette.EyeColor(Kind);
+            eyeHalo.color = new Color(c.r, c.g, c.b, haloAlpha);
         }
 
         public void Init(DungeonMap map, GridPathfinder pathfinder, float speedMultiplier = 1f)
@@ -149,6 +166,7 @@ namespace Lumen.Enemies
 
             // Face movement direction; jitter when stunned.
             if (Mathf.Abs(body.linearVelocity.x) > 0.1f) bodySprite.flipX = body.linearVelocity.x < 0;
+            RefreshEyes(); // cheap, and lets the colorblind toggle apply instantly to living enemies
             Vector3 jitter = stunned > 0 ? (Vector3)(Random.insideUnitCircle * 0.04f) : Vector3.zero;
             bodySprite.transform.localPosition = BodyOffset + jitter;
         }
@@ -197,7 +215,7 @@ namespace Lumen.Enemies
             if (IsDead) return;
             IsDead = true;
             PixelParticles.Burst((Vector2)transform.position + Vector2.up * 0.4f, 28, new Color(0.15f, 0.1f, 0.2f), 3f, 0.9f, false, 0.6f, 1f, 0.3f);
-            PixelParticles.Burst((Vector2)transform.position + Vector2.up * 0.4f, 8, Palette.ShadeEye, 2f, 0.5f);
+            PixelParticles.Burst((Vector2)transform.position + Vector2.up * 0.4f, 8, Palette.EyeColor(Kind), 2f, 0.5f);
             GameEvents.RaiseEnemyKilled(transform.position, Kind, cause);
             Destroy(gameObject);
         }

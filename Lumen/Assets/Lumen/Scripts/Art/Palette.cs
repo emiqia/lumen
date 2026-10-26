@@ -39,12 +39,14 @@ namespace Lumen.Art
         public static readonly Color32 ShadeBody = Hex(0x231b2e);
         public static readonly Color32 ShadeEdge = Hex(0x3b2d4d);
         public static readonly Color32 ShadeEye = Hex(0xff3355);
+        public static readonly Color32 ShadeEyeAlt = Hex(0xff3df0);    // colorblind mode: magenta
         public static readonly Color32 MothWing = Hex(0xd8d0c0);
         public static readonly Color32 MothWingDark = Hex(0x9d9384);
         public static readonly Color32 MothBody = Hex(0x5b5146);
         public static readonly Color32 DevourerBody = Hex(0x120e18);
         public static readonly Color32 DevourerEdge = Hex(0x2e2240);
         public static readonly Color32 DevourerEye = Hex(0xb8ff3c);
+        public static readonly Color32 DevourerEyeAlt = Hex(0x3cf0ff); // colorblind mode: cyan
         public static readonly Color32 DevourerMaw = Hex(0x4a0f22);
 
         // Props
@@ -63,6 +65,7 @@ namespace Lumen.Art
         public static readonly Color32 UiDim = Hex(0x8c8296);
         public static readonly Color32 UiPanel = Hex(0x110e16, 220);
         public static readonly Color32 UiDanger = Hex(0xff4f5e);
+        public static readonly Color32 Stealth = Hex(0x8fb8ff);
 
         // Light colors (linear-ish, used by Light2D)
         public static readonly Color PlayerLight = new Color(1f, 0.72f, 0.42f);
@@ -71,5 +74,16 @@ namespace Lumen.Art
         public static readonly Color AmbientLight = new Color(0.22f, 0.28f, 0.55f); // cold moonlit blue vs warm fire
 
         public static Color32 Lerp(Color32 a, Color32 b, float t) => Color32.Lerp(a, b, t);
+
+        /// <summary>
+        /// Eye color per enemy, honoring the colorblind setting. The default red/green pair is the
+        /// one deuteranopes confuse; the alternative is magenta/cyan.
+        /// </summary>
+        public static Color32 EyeColor(Level.EnemyKind kind) => kind switch
+        {
+            Level.EnemyKind.Stalker => Core.SaveData.Colorblind ? ShadeEyeAlt : ShadeEye,
+            Level.EnemyKind.Devourer => Core.SaveData.Colorblind ? DevourerEyeAlt : DevourerEye,
+            _ => new Color32(255, 240, 200, 255),
+        };
     }
 }

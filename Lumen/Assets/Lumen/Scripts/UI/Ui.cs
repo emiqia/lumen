@@ -85,21 +85,32 @@ namespace Lumen.UI
         }
 
         /// <summary>Greedy word wrap for the pixel font, which has no automatic line breaking.</summary>
-        public static string Wrap(string text, int maxChars)
+        /// <param name="indentLines">How many first lines leave room on the left (e.g. for a drop cap).</param>
+        /// <param name="indent">The leading spaces used for those lines.</param>
+        public static string Wrap(string text, int maxChars, int indentLines = 0, string indent = "")
         {
             var sb = new System.Text.StringBuilder();
+            int line = 0;
             foreach (var paragraph in text.Split('\n'))
             {
                 int lineLen = 0;
+                bool lineStarted = false;
                 foreach (var word in paragraph.Split(' '))
                 {
                     if (word.Length == 0) continue;
-                    if (lineLen > 0 && lineLen + 1 + word.Length > maxChars) { sb.Append('\n'); lineLen = 0; }
-                    else if (lineLen > 0) { sb.Append(' '); lineLen++; }
+                    int limit = line < indentLines ? maxChars - indent.Length : maxChars;
+                    if (lineStarted && lineLen + 1 + word.Length > limit) { sb.Append('\n'); line++; lineLen = 0; lineStarted = false; }
+                    if (!lineStarted)
+                    {
+                        if (line < indentLines) sb.Append(indent);
+                        lineStarted = true;
+                    }
+                    else { sb.Append(' '); lineLen++; }
                     sb.Append(word);
                     lineLen += word.Length;
                 }
                 sb.Append('\n');
+                line++;
             }
             return sb.ToString().TrimEnd('\n');
         }

@@ -26,6 +26,8 @@ namespace Lumen.UI
         BookScreen book;
         Mode optionsReturn;
         Difficulty chosen;
+        float modeT;                       // time since the current panel appeared (for its fade-in)
+        const float FadeTime = 0.22f;
 
         public static FrontEnd Create(Transform canvas, BookScreen book)
         {
@@ -161,9 +163,25 @@ namespace Lumen.UI
             StartRequested?.Invoke(chosen);
         }
 
+        RectTransform PanelFor(Mode mode) => mode switch
+        {
+            Mode.Title => titlePanel,
+            Mode.Difficulty => difficultyPanel,
+            Mode.Options => optionsPanel,
+            Mode.Pause => pausePanel,
+            _ => null,
+        };
+
+        static CanvasGroup GroupOf(RectTransform panel)
+        {
+            var g = panel.GetComponent<CanvasGroup>();
+            return g != null ? g : panel.gameObject.AddComponent<CanvasGroup>();
+        }
+
         void SetMode(Mode mode)
         {
             Current = mode;
+            modeT = 0f;
             titlePanel.gameObject.SetActive(mode == Mode.Title);
             difficultyPanel.gameObject.SetActive(mode == Mode.Difficulty);
             optionsPanel.gameObject.SetActive(mode == Mode.Options);
@@ -178,6 +196,11 @@ namespace Lumen.UI
 
         void Update()
         {
+            // Panels fade in instead of popping.
+            modeT += Time.unscaledDeltaTime;
+            var panel = PanelFor(Current);
+            if (panel != null) GroupOf(panel).alpha = Mathf.Clamp01(modeT / FadeTime);
+
             // The book has its own hint line; don't overlap it with the menu's.
             hint.gameObject.SetActive(Current != Mode.Hidden && !book.IsOpen);
             if (Current == Mode.Hidden || book.IsOpen) return;

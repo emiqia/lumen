@@ -60,7 +60,7 @@ namespace Lumen.Bot
             }
 
             bool flareReady = player.FlareCooldownLeft <= 0f && player.Fuel > tuningCost + 8f;
-            if (nearest != null && flareReady && !(nearest.Kind == EnemyKind.Devourer && nearest.IsStunned))
+            if (nearest != null && flareReady && !(nearest is Devourer devourer && !devourer.Vulnerable))
             {
                 // Inside the kill radius (with a margin) so the flare is worth its cost.
                 float kill = GameTuning.I.flareKillRadius;

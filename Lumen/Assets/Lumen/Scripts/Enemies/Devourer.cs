@@ -17,7 +17,7 @@ namespace Lumen.Enemies
     {
         public override EnemyKind Kind => EnemyKind.Devourer;
 
-        int flaresTaken;
+        WoundGate wounds;
         Brazier targetBrazier;
         float retarget;
         Vector2 wanderTarget;
@@ -31,8 +31,26 @@ namespace Lumen.Enemies
             return d;
         }
 
+        protected override void Awake()
+        {
+            base.Awake();
+            wounds = new WoundGate(Tuning.devourerStunTime + Tuning.devourerWoundImmunity);
+        }
+
+        /// <summary>Whether a flare would wound it right now (the bot uses this to save fuel).</summary>
+        public bool Vulnerable => wounds.CanWound(Time.time);
+
+        bool Enraged => !wounds.CanWound(Time.time) && stunned <= 0f;
+
         protected override void Think(float dt)
         {
+            // Freshly wounded: ignore braziers and charge whoever burned it.
+            if (Enraged && Player != null && Player.IsAlive)
+            {
+                MoveTo(Player.transform.position, Tuning.devourerSpeed * Tuning.devourerEnragedSpeed, 0.3f);
+                return;
+            }
+
             retarget -= dt;
             if (retarget <= 0f || targetBrazier == null || !targetBrazier.IsLit)
             {
@@ -72,20 +90,26 @@ namespace Lumen.Enemies
             if (IsDead) return;
             Vector2 p = transform.position;
             if ((p - origin).sqrMagnitude > radius * radius || !LightField.LineOfSight(origin, p)) return;
-            // Flares only wound it when it isn't already reeling: three separate engagements, not one burst.
-            if (stunned > 0f) return;
-            flaresTaken++;
+            // A wound buys a stun, then several seconds of immunity while it charges you:
+            // killing it takes separate engagements, not three flares back to back.
+            if (!wounds.TryWound(Time.time))
+            {
+                PixelParticles.Burst(p + Vector2.up * 0.6f, 8, Palette.DevourerEdge, 1.5f, 0.4f, false);
+                return;
+            }
             stunned = Tuning.devourerStunTime;
             bodySprite.color = new Color(1f, 0.6f, 0.6f);
             PixelParticles.Burst(p + Vector2.up * 0.6f, 20, Palette.DevourerEye, 3f, 0.6f);
             CameraRig.Shake(0.3f);
-            if (flaresTaken >= Tuning.devourerFlaresToKill) Kill();
+            if (wounds.Wounds >= Tuning.devourerFlaresToKill) Kill();
         }
 
         protected override void Update()
         {
             base.Update();
-            if (stunned <= 0f) bodySprite.color = Color.Lerp(bodySprite.color, Color.white, Time.deltaTime * 3f);
+            // Enraged: glows angry red; otherwise fades back to normal after a stun.
+            Color target = Enraged ? new Color(1f, 0.45f, 0.45f) : Color.white;
+            if (stunned <= 0f) bodySprite.color = Color.Lerp(bodySprite.color, target, Time.deltaTime * 3f);
         }
 
         Brazier NearestLitBrazier()

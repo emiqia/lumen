@@ -175,3 +175,36 @@ namespace Lumen.Tests
         }
     }
 }
+
+namespace Lumen.Tests
+{
+    public class WoundGateTests
+    {
+        [Test]
+        public void Devourer_CannotBeFlareLockedToDeath()
+        {
+            // Fire a flare every cooldown for 20 s, as a player mashing Space would.
+            var t = ScriptableObject.CreateInstance<GameTuning>();
+            var gate = new Lumen.Enemies.WoundGate(t.devourerStunTime + t.devourerWoundImmunity);
+            float killedAt = -1f;
+            for (float time = 0f; time < 20f; time += t.flareCooldown)
+                if (gate.TryWound(time) && gate.Wounds == t.devourerFlaresToKill) { killedAt = time; break; }
+
+            Assert.Greater(gate.Gap, t.flareCooldown + 1f, "wounds must be separated by more than one cooldown");
+            Assert.GreaterOrEqual(killedAt, 2f * gate.Gap - t.flareCooldown,
+                "three wounds need at least two full immunity windows");
+            Object.DestroyImmediate(t);
+        }
+
+        [Test]
+        public void IgnoredFlares_DoNotCount()
+        {
+            var gate = new Lumen.Enemies.WoundGate(5f);
+            Assert.IsTrue(gate.TryWound(0f));
+            Assert.IsFalse(gate.TryWound(2.2f));
+            Assert.IsFalse(gate.TryWound(4.4f));
+            Assert.IsTrue(gate.TryWound(5f));
+            Assert.AreEqual(2, gate.Wounds);
+        }
+    }
+}

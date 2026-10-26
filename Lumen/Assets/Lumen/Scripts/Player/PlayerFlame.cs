@@ -217,6 +217,8 @@ namespace Lumen.Player
         {
             if (!IsAlive) return;
             IsAlive = false;
+            IsRefueling = false;
+            IsDimmed = false;
             fuel.Set(0f);
             mainLight.enabled = false;
             flareLight.enabled = false;

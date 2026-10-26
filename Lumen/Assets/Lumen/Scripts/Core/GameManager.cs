@@ -204,7 +204,9 @@ namespace Lumen.Core
             score.Reset();
             score.Counting = false; // starts counting once floor 1 is loaded, not during the fade from the demo
             RunTime = 0f;
-            tutorial.BeginRun();
+            bool arrows = DifficultyProfile.For(difficulty).ShowsBrazierArrows;
+            hud.BrazierArrows = arrows;
+            tutorial.BeginRun(arrows);
             screens.HideGameOver();
             hud.gameObject.SetActive(!Headless);
             StartCoroutine(TransitionTo(1, fadeOut: !Headless));

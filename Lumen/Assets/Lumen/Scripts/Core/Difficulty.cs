@@ -13,6 +13,8 @@ namespace Lumen.Core
     {
         public readonly float Drain, EnemySpeed, Damage, BrazierReserve, Sight, DarknessInterval, EmberFuel;
         public readonly bool DevourerKillsInOneHit;
+        /// <summary>On the harder fires nothing points you to the braziers (only a Map reveals them).</summary>
+        public bool ShowsBrazierArrows => Drain <= 1f;
 
         DifficultyProfile(float drain, float enemySpeed, float damage, float reserve, float sight, float darkness, float ember, bool oneHit = false)
         {

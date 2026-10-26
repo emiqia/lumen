@@ -32,6 +32,8 @@ namespace Lumen.UI
 
         /// <summary>Set when a map is picked up: every unlit brazier on the floor gets an edge marker.</summary>
         public bool RevealAllBraziers { get; set; }
+        /// <summary>False on Hoguera/Ceniza: brazier markers only appear after picking up a Map.</summary>
+        public bool BrazierArrows { get; set; } = true;
         PixelText fuelLabel, flareIcon, floorText, scoreText, brazierText, announceText, subAnnounceText, hintText, warningText;
         readonly List<Image> pipFills = new List<Image>();
         readonly List<GameObject> pipObjects = new List<GameObject>();
@@ -255,7 +257,7 @@ namespace Lumen.UI
                 {
                     foreach (var b in gm.Level.Braziers) if (!b.IsLit) arrowTargets.Add(b.transform);
                 }
-                else
+                else if (BrazierArrows)
                 {
                     var nearest = NearestUnlit(gm.Level.Braziers, player.transform.position);
                     if (nearest != null) arrowTargets.Add(nearest);

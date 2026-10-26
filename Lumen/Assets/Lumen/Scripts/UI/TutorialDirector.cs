@@ -46,8 +46,11 @@ namespace Lumen.UI
         void OnAlerted(Vector2 _) => stalkerAlerted = true;
         void OnBrazierLit(Vector2 _) => brazierLit = true;
 
-        public void BeginRun()
+        bool arrows = true;
+
+        public void BeginRun(bool brazierArrows = true)
         {
+            arrows = brazierArrows;
             requested.Clear();
             queue.Clear();
             sinceLastHint = NormalGap - 1f; // first hint shortly after the floor intro
@@ -87,7 +90,7 @@ namespace Lumen.UI
             lastPos = pos;
             hasLastPos = true;
 
-            if (moved > 4f || floorTime > 6f) Request("tut.brazier");
+            if (moved > 4f || floorTime > 6f) Request(arrows ? "tut.brazier" : "tut.brazier.noarrow");
             if (brazierLit) Request("tut.fuel");
             if (stalkerAlerted || NearestShade(pos, EnemyKind.Stalker, 7f)) Request("tut.dim");
             if (NearestShade(pos, null, 4.5f)) Request("tut.flare");

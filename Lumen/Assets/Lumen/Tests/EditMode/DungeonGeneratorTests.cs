@@ -44,7 +44,7 @@ namespace Lumen.Tests
                 var map = DungeonGenerator.Generate(seed, FloorSettings.ForFloor(floor));
                 var dist = map.DistanceField(map.PlayerSpawn);
                 foreach (var e in map.Enemies)
-                    Assert.GreaterOrEqual(dist[e.Cell.x, e.Cell.y], 12, $"enemy too close (seed {seed})");
+                    Assert.GreaterOrEqual(dist[e.Cell.x, e.Cell.y], DungeonGenerator.MinEnemySteps, $"enemy too close (seed {seed})");
             }
         }
 
@@ -74,6 +74,27 @@ namespace Lumen.Tests
             Assert.Less(late.Embers, early.Embers);
             Assert.AreEqual(0, early.Moths);
             Assert.AreEqual(0, early.Devourers);
+        }
+
+        [Test]
+        public void Difficulty_KeepsRisingPastTheMapSizeCap()
+        {
+            // Map size caps around floor 7; pressure must keep growing after that.
+            var f9 = FloorSettings.ForFloor(9);
+            var f13 = FloorSettings.ForFloor(13);
+            Assert.AreEqual(f9.Width, f13.Width, "map size should be capped");
+            Assert.Greater(f13.Stalkers, f9.Stalkers);
+            Assert.Greater(f13.Devourers, f9.Devourers);
+            Assert.Greater(f13.EnemySpeedMultiplier, f9.EnemySpeedMultiplier);
+            Assert.LessOrEqual(FloorSettings.ForFloor(99).EnemySpeedMultiplier, 1.3f);
+        }
+
+        [Test]
+        public void FloorSeeds_AreDeterministicAndDistinct()
+        {
+            Assert.AreEqual(FloorSettings.SeedFor(1234, 3), FloorSettings.SeedFor(1234, 3));
+            Assert.AreNotEqual(FloorSettings.SeedFor(1234, 3), FloorSettings.SeedFor(1234, 4));
+            Assert.AreNotEqual(FloorSettings.SeedFor(1234, 3), FloorSettings.SeedFor(1235, 3));
         }
     }
 

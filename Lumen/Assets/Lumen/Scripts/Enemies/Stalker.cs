@@ -18,6 +18,7 @@ namespace Lumen.Enemies
         public override EnemyKind Kind => EnemyKind.Stalker;
 
         State state;
+        public bool IsChasing => state == State.Chase;
         Vector2 wanderTarget;
         Vector2 lastSeen;
         float stateTimer;

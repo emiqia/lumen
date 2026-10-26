@@ -38,6 +38,7 @@ namespace Lumen.Bot
         public void Tick()
         {
             FlarePressed = false;
+            UseItemPressed = false;
             var gm = GameManager.Instance;
             var player = LightField.Player;
             if (gm == null || player == null || gm.Level == null || !player.IsAlive) { Move = Vector2.zero; return; }
@@ -47,17 +48,27 @@ namespace Lumen.Bot
             float tuningCost = GameTuning.I.flareCost;
 
             // ---- threats
+            var t = GameTuning.I;
             Shade nearest = null;
             float nearestD = float.MaxValue;
-            int stalkersNear = 0;
+            bool unawareStalkerCouldSeeUs = false, chased = false;
+            Stalker chaser = null;
+            float chaserD = float.MaxValue;
+            // How far a stalker would see us at full light: if one is that close and hasn't noticed, sneak.
+            float brightSight = t.stalkerSightBase + player.LightRadius * t.stalkerSightLightFactor + 1f;
             Vector2 repel = Vector2.zero;
             foreach (var s in Shade.All)
             {
                 if (s == null || s.IsDead) continue;
                 Vector2 sp = s.transform.position;
                 float d = Vector2.Distance(pos, sp);
-                if (d < nearestD && LightField.LineOfSight(pos, sp)) { nearestD = d; nearest = s; }
-                if (s.Kind == EnemyKind.Stalker && d < 7f) stalkersNear++;
+                bool los = LightField.LineOfSight(pos, sp);
+                if (d < nearestD && los) { nearestD = d; nearest = s; }
+                if (s is Stalker st)
+                {
+                    if (st.IsChasing) { chased = true; if (d < chaserD) { chaserD = d; chaser = st; } }
+                    else if (d < brightSight && los) unawareStalkerCouldSeeUs = true;
+                }
                 if (d < 3f && s.Kind != EnemyKind.Moth) repel += (pos - sp).normalized * (3f - d);
                 // An enraged Devourer can't be flared: get away from it, as a person would.
                 if (s is Devourer rage && rage.Enraged && d < 7f) repel += (pos - sp).normalized * (7f - d) * 0.6f;
@@ -66,14 +77,25 @@ namespace Lumen.Bot
                     repel += (pos - sp).normalized * (4.5f - d) * 0.5f;
             }
 
-            bool flareReady = player.FlareCooldownLeft <= 0f && player.Fuel > tuningCost + 8f;
+            // Light as a weapon: a chasing stalker inside the burn radius falters; stand firm at full
+            // brightness and let it burn instead of paying for a flare.
+            float burnRadius = player.LightRadius * t.burnRadiusFactor;
+            bool standGround = chaser != null && chaserD < burnRadius + 0.8f && player.Fuel > 30f && !player.IsDimmed;
+
+            bool flareReady = player.FlareCooldownLeft <= 0f && (player.Fuel > tuningCost + 8f || (gm.Run != null && gm.Run.Oil > 0));
             if (nearest != null && flareReady && !(nearest is Devourer devourer && !devourer.Vulnerable))
             {
-                // Inside the kill radius (with a margin) so the flare is worth its cost.
-                float kill = GameTuning.I.flareKillRadius;
-                float trigger = nearest.Kind == EnemyKind.Devourer ? kill * 0.8f : nearest.Kind == EnemyKind.Moth ? 1.6f : kill * 0.7f;
+                // Inside the kill radius (with a margin) so the flare is worth its cost. When standing
+                // ground against a stalker, only flare as a last resort (it's about to touch us).
+                float kill = t.flareKillRadius;
+                float trigger = nearest.Kind == EnemyKind.Devourer ? kill * 0.8f
+                    : nearest.Kind == EnemyKind.Moth ? 1.6f
+                    : standGround ? 0.9f : kill * 0.7f;
                 if (nearestD < trigger) FlarePressed = true;
             }
+
+            // A lure buys time when something is hunting us.
+            if (gm.Run != null && gm.Run.Lures > 0 && chased && chaserD < 6f && chaserD > 2.5f) UseItemPressed = true;
 
             // ---- choose goal (a few times per second is plenty)
             thinkTimer -= Time.deltaTime;
@@ -122,7 +144,7 @@ namespace Lumen.Bot
             if (stuckTimer > 0.6f) { jitter = Random.insideUnitCircle.normalized; stuckTimer = 0f; repathTimer = 0f; }
             jitter = Vector2.Lerp(jitter, Vector2.zero, Time.deltaTime * 2f);
 
-            Move = Vector2.ClampMagnitude(dir + jitter, 1f);
+            Move = standGround ? Vector2.zero : Vector2.ClampMagnitude(dir + jitter, 1f);
 
             if (Verbose && (logTimer -= Time.deltaTime) <= 0f)
             {
@@ -131,8 +153,14 @@ namespace Lumen.Bot
                           $"goalFloor={map.IsFloor(goalCell)} path={pathIndex}/{path.Count} move={Move} lit={gm.BraziersLit}");
             }
 
-            // Sneak when stalkers are around but not on top of us; don't bother while refueling.
-            Dim = stalkersNear > 0 && nearestD > 2.5f && !player.IsRefueling && player.Fuel > 12f;
+            // Sneak past stalkers that haven't noticed us yet; once chased, full light is a weapon,
+            // so stop sneaking. Don't bother while refueling.
+            Dim = unawareStalkerCouldSeeUs && !chased && !standGround && !player.IsRefueling && player.Fuel > 12f;
+
+            // Run on long, quiet stretches when fuel allows: never in water, never near threats.
+            int remaining = path.Count - pathIndex;
+            Sprint = !Dim && !standGround && nearestD > 9f && !chased && player.Fuel > 55f && remaining > 10
+                     && !LevelHazards.InWater(pos);
         }
 
         void ChooseGoal(GameManager gm, PlayerFlame player, DungeonMap map, Vector2 pos)

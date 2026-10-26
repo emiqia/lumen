@@ -85,7 +85,10 @@ namespace Lumen.Core
             BuildCamera();
             postFx = PostFxController.Create(transform);
             new GameObject("Particles").AddComponent<PixelParticles>().transform.SetParent(transform);
-            new GameObject("Audio").AddComponent<Sfx>().transform.SetParent(transform);
+            var audio = new GameObject("Audio");
+            audio.transform.SetParent(transform);
+            audio.AddComponent<Sfx>();
+            audio.AddComponent<Music>();
 
             var canvas = Ui.CreateCanvas("UI", 100);
             canvas.transform.SetParent(transform);
@@ -183,6 +186,7 @@ namespace Lumen.Core
             EndRunState();
             screens.HideGameOver();
             frontEnd.ShowTitle();
+            Music.I?.Play(Music.Track.Title);
             hud.gameObject.SetActive(false);
             // Attract mode: the autopilot plays a floor behind the title screen.
             LoadFloor(2, Random.Range(0, 99999), () => new AutoPilot());
@@ -293,6 +297,7 @@ namespace Lumen.Core
             player.transform.SetParent(level.Root.transform);
             if (input != null) player.Controls = input();
             player.Run = run;
+            if (run != null) Music.I?.Play(Music.ForBiome(map.Biome));
             hud.RevealAllBraziers = false;
             postFx.SetAmbient(BiomePalette.For(map.Biome).Ambient);
 

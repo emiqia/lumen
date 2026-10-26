@@ -179,3 +179,31 @@ namespace Lumen.Tests
         }
     }
 }
+
+namespace Lumen.Tests
+{
+    public class MusicTests
+    {
+        [Test]
+        public void EveryTrack_IsCleanAudibleAndLoopsWithoutAClick()
+        {
+            foreach (Lumen.FX.Music.Track track in System.Enum.GetValues(typeof(Lumen.FX.Music.Track)))
+            {
+                var s = Lumen.FX.Music.Render(track);
+                double sumSq = 0; float peak = 0;
+                foreach (float v in s)
+                {
+                    Assert.IsFalse(float.IsNaN(v) || float.IsInfinity(v), track + " has invalid samples");
+                    peak = Mathf.Max(peak, Mathf.Abs(v));
+                    sumSq += v * v;
+                }
+                float rms = Mathf.Sqrt((float)(sumSq / s.Length));
+                Assert.LessOrEqual(peak, 0.81f, track + " clips");
+                Assert.Greater(rms, 0.05f, track + " is nearly silent");
+                // The wrap-around point must not jump (that would click on every loop).
+                Assert.Less(Mathf.Abs(s[s.Length - 1] - s[0]), 0.08f, track + " has a seam");
+                Assert.Greater(s.Length / 22050f, 20f, track + " is too short to loop pleasantly");
+            }
+        }
+    }
+}

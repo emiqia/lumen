@@ -32,7 +32,7 @@ namespace Lumen.FX
             }
             ambientSource = gameObject.AddComponent<AudioSource>();
             ambientSource.loop = true;
-            ambientSource.volume = 0.35f * SaveData.MusicVolume;
+            ambientSource.volume = 0.16f * SaveData.MusicVolume;
             heartSource = gameObject.AddComponent<AudioSource>();
             heartSource.loop = true;
             heartSource.volume = 0f;
@@ -57,7 +57,8 @@ namespace Lumen.FX
         public void Blip() => Play(blip, 0.3f);
 
         /// <summary>Music = ambient drone + heartbeat; effects = everything else.</summary>
-        public void ApplyVolumes() => ambientSource.volume = 0.35f * SaveData.MusicVolume;
+        // The drone now sits quietly under the procedural music (see Music).
+        public void ApplyVolumes() => ambientSource.volume = 0.16f * SaveData.MusicVolume;
 
         /// <summary>0 = calm, 1 = about to die. Drives the heartbeat layer.</summary>
         public void SetDanger(float danger)

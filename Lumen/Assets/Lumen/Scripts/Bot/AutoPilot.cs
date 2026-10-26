@@ -18,6 +18,8 @@ namespace Lumen.Bot
         public Vector2 Move { get; private set; }
         public bool Dim { get; private set; }
         public bool FlarePressed { get; private set; }
+        public bool Sprint { get; private set; }
+        public bool UseItemPressed { get; private set; }
 
         enum Goal { None, LightBrazier, Refuel, Ember, Exit }
 

@@ -11,7 +11,9 @@ namespace Lumen.Player
     {
         Vector2 Move { get; }
         bool Dim { get; }
-        bool FlarePressed { get; } // true only on the frame it was pressed
+        bool Sprint { get; }
+        bool FlarePressed { get; }   // true only on the frame it was pressed
+        bool UseItemPressed { get; } // true only on the frame it was pressed
         void Tick();
     }
 
@@ -19,12 +21,14 @@ namespace Lumen.Player
     {
         public Vector2 Move { get; private set; }
         public bool Dim { get; private set; }
+        public bool Sprint { get; private set; }
         public bool FlarePressed { get; private set; }
+        public bool UseItemPressed { get; private set; }
 
         public void Tick()
         {
             Vector2 move = Vector2.zero;
-            bool dim = false, flare = false;
+            bool dim = false, sprint = false, flare = false, use = false;
 
             var kb = Keyboard.current;
             if (kb != null)
@@ -33,8 +37,10 @@ namespace Lumen.Player
                 if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) move.x += 1;
                 if (kb.sKey.isPressed || kb.downArrowKey.isPressed) move.y -= 1;
                 if (kb.wKey.isPressed || kb.upArrowKey.isPressed) move.y += 1;
-                dim |= kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed;
+                sprint |= kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed;
+                dim |= kb.leftCtrlKey.isPressed || kb.rightCtrlKey.isPressed;
                 flare |= kb.spaceKey.wasPressedThisFrame;
+                use |= kb.eKey.wasPressedThisFrame;
             }
 
             var pad = Gamepad.current;
@@ -43,13 +49,17 @@ namespace Lumen.Player
                 Vector2 stick = pad.leftStick.ReadValue();
                 if (stick.sqrMagnitude > 0.04f) move += stick;
                 move += pad.dpad.ReadValue();
-                dim |= pad.leftTrigger.isPressed || pad.leftShoulder.isPressed;
-                flare |= pad.buttonSouth.wasPressedThisFrame || pad.rightTrigger.wasPressedThisFrame;
+                dim |= pad.leftTrigger.isPressed;
+                sprint |= pad.rightTrigger.isPressed;
+                flare |= pad.buttonSouth.wasPressedThisFrame;
+                use |= pad.buttonNorth.wasPressedThisFrame;
             }
 
             Move = Vector2.ClampMagnitude(move, 1f);
             Dim = dim;
+            Sprint = sprint && !dim; // sneaking wins over running
             FlarePressed = flare;
+            UseItemPressed = use;
         }
     }
 }

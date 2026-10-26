@@ -3,6 +3,7 @@ using Lumen.Core;
 using Lumen.FX;
 using Lumen.Level;
 using Lumen.Lighting;
+using Lumen.World;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
@@ -23,6 +24,10 @@ namespace Lumen.Player
         public bool IsDimmed { get; private set; }
         public bool IsAlive { get; private set; } = true;
         public bool IsRefueling { get; private set; }
+        public bool IsSprinting { get; private set; }
+        public bool InGust { get; private set; }
+        /// <summary>The run this flame belongs to (inventory, run tuning). Null in the attract-mode demo.</summary>
+        public RunState Run { get; set; }
         public float FlareCooldownLeft { get; private set; }
         public bool CanAffordFlare => fuel.CanAfford(Tuning.flareCost);
         public bool Controllable { get; set; } = true;
@@ -30,6 +35,7 @@ namespace Lumen.Player
         // Telemetry for the playtest bot / stats screen.
         public int FlaresUsed { get; private set; }
         public float TimeDimmed { get; private set; }
+        public float TimeSprinting { get; private set; }
 
         static GameTuning Tuning => GameTuning.I;
 
@@ -45,6 +51,9 @@ namespace Lumen.Player
         EnemyKind lastHitSource;
         float sparkTimer;
         float hitFlash;
+        float splashTimer;
+        Vector2 gustPush;
+        Vector2 lastMoveDir = Vector2.down;
 
         public static PlayerFlame Create(Vector2 position)
         {
@@ -109,19 +118,30 @@ namespace Lumen.Player
             float dt = Time.deltaTime;
 
             if (Controllable) Controls.Tick();
+            Vector2 pos = transform.position;
+            bool moving = Controllable && Controls.Move.sqrMagnitude > 0.01f;
+            if (moving) lastMoveDir = Controls.Move.normalized;
             IsDimmed = Controllable && Controls.Dim;
+            // Running trades light for speed: a speedrunner's tool, and a beacon for everything in the dark.
+            IsSprinting = Controllable && Controls.Sprint && !IsDimmed && moving && fuel.Value > 1f;
             if (IsDimmed) TimeDimmed += dt;
+            if (IsSprinting) TimeSprinting += dt;
 
             // Fuel economy: lit braziers refuel from their finite reserve; otherwise the flame burns.
             float gained = 0f;
-            if (LightField.InBrazierSafeZone(transform.position, out var brazier) && !brazier.Depleted)
+            if (LightField.InBrazierSafeZone(pos, out var brazier) && !brazier.Depleted)
                 gained = brazier.Withdraw(fuel.RefuelFrom(brazier.Reserve, Tuning.brazierRefuelPerSecond, dt));
             IsRefueling = gained > 0f;
-            if (!IsRefueling) fuel.Burn(dt, IsDimmed);
+            if (!IsRefueling) fuel.Burn(dt * (IsSprinting ? Tuning.sprintDrainMultiplier : 1f), IsDimmed);
 
-            // Light radius follows fuel; dimming clamps it down.
+            UpdateHazards(pos, dt);
+
+            if (Controllable && Controls.UseItemPressed) TryUseItem();
+
+            // Light radius follows fuel; dimming clamps it down, sprinting flares it up, gusts beat it down.
             float targetRadius = IsDimmed ? Tuning.dimLightRadius
-                : Mathf.Lerp(Tuning.minLightRadius, Tuning.maxLightRadius, FuelNormalized);
+                : Mathf.Lerp(Tuning.minLightRadius, Tuning.maxLightRadius, FuelNormalized) * (IsSprinting ? Tuning.sprintLightBoost : 1f);
+            if (InGust) targetRadius *= Tuning.windGustDim;
             LightRadius = Mathf.Lerp(LightRadius, targetRadius, dt * 6f);
             flicker.baseRadius = LightRadius;
             flicker.baseIntensity = IsDimmed ? 0.7f : 1.15f;
@@ -150,14 +170,41 @@ namespace Lumen.Player
         {
             if (!IsAlive) { body.linearVelocity = Vector2.zero; return; }
             Vector2 move = Controllable ? Controls.Move : Vector2.zero;
-            float speed = IsDimmed ? Tuning.dimMoveSpeed : Tuning.moveSpeed;
-            body.linearVelocity = Vector2.MoveTowards(body.linearVelocity, move * speed, Tuning.acceleration * Time.fixedDeltaTime);
+            float speed = IsDimmed ? Tuning.dimMoveSpeed : Tuning.moveSpeed * (IsSprinting ? Tuning.sprintSpeedMultiplier : 1f);
+            Vector2 target = move * speed + (InGust ? gustPush : Vector2.zero);
+            body.linearVelocity = Vector2.MoveTowards(body.linearVelocity, target, Tuning.acceleration * Time.fixedDeltaTime);
+        }
+
+        /// <summary>Biome hazards: running through water costs light; gusts dim and push the flame.</summary>
+        void UpdateHazards(Vector2 pos, float dt)
+        {
+            bool inWater = LevelHazards.InWater(pos);
+            if (inWater && IsSprinting) fuel.Add(-Tuning.waterSprintDrain * dt);
+            splashTimer -= dt;
+            if (inWater && body.linearVelocity.sqrMagnitude > 0.5f && splashTimer <= 0f)
+            {
+                splashTimer = IsSprinting ? 0.05f : 0.18f;
+                PixelParticles.Emit(pos + Random.insideUnitCircle * 0.2f, Random.insideUnitCircle * (IsSprinting ? 2.5f : 1f) + Vector2.up,
+                    new Color(0.55f, 0.75f, 0.9f, 0.9f), 0.35f, false, -3f);
+            }
+            InGust = LevelHazards.GustAt(pos, out gustPush);
+        }
+
+        void TryUseItem()
+        {
+            if (Run == null || Run.Lures <= 0) return;
+            Run.Lures--;
+            Lure.Throw(transform.position, lastMoveDir, transform.parent);
+            GameEvents.RaiseItemUsed(transform.position, Level.ItemKind.Lure);
         }
 
         void TryFlare()
         {
             if (FlareCooldownLeft > 0f) return;
-            if (!fuel.TrySpend(Tuning.flareCost))
+            // Oil makes a flare free; otherwise it costs light.
+            bool oil = Run != null && Run.Oil > 0;
+            if (oil) Run.Oil--;
+            else if (!fuel.TrySpend(Tuning.flareCost))
             {
                 Sfx.I?.Blip(); // not enough fuel: fizzle
                 PixelParticles.Burst(transform.position, 6, Palette.FireRed, 1.5f, 0.3f);
@@ -197,6 +244,15 @@ namespace Lumen.Player
         {
             if (!IsAlive || invulnerable > 0f) return false;
             invulnerable = Tuning.hitInvulnerability;
+            // The lantern's glass takes the blow instead of the flame.
+            if (Run != null && Run.Lantern)
+            {
+                Run.Lantern = false;
+                PixelParticles.Burst(transform.position, 24, new Color(1f, 0.9f, 0.6f), 4f, 0.6f, true, 1f);
+                GameEvents.RaiseItemUsed(transform.position, Level.ItemKind.Lantern);
+                CameraRig.Shake(0.3f);
+                return true;
+            }
             hitFlash = 0.08f;
             lastHitTime = Time.time;
             lastHitSource = source;
@@ -216,6 +272,18 @@ namespace Lumen.Player
         void Die()
         {
             if (!IsAlive) return;
+            // "Segunda chispa": rekindle once instead of going out.
+            if (Run != null && Run.Tuning.extraLives > 0)
+            {
+                Run.Tuning.extraLives--;
+                fuel.Set(Tuning.reviveFuel);
+                invulnerable = 2f;
+                PixelParticles.Ring(transform.position, 48, Palette.FireYellow, 8f, 0.6f);
+                PixelParticles.Burst(transform.position, 40, Palette.FireWhite, 4f, 0.8f, true, 1.5f);
+                CameraRig.Shake(0.5f);
+                GameEvents.RaisePlayerRevived(transform.position);
+                return;
+            }
             IsAlive = false;
             IsRefueling = false;
             IsDimmed = false;

@@ -375,19 +375,22 @@ namespace Lumen.Art
                     p.Ellipse(10, 3, 2f, 1.5f, Palette.Stone);
                     p.Set(8, 6, Palette.StoneLight); p.Set(12, 5, Palette.StoneDark);
                     break;
-                case 3: // cobweb in the top-left corner: three radials and two concentric arcs
-                    var web = new Color32(205, 205, 215, 150);
-                    for (int i = 0; i < 11; i++)
+                case 3: // cobweb hanging from the top-left corner: radials fanned *inside* the corner
+                        // (not along the edges, which read as a letter) plus two sagging arcs.
+                    var web = new Color32(Palette.BoneDark.r, Palette.BoneDark.g, Palette.BoneDark.b, 128);
+                    foreach (float deg in new[] { 18f, 45f, 72f })
                     {
-                        p.Set(i, 15, web);
-                        p.Set(0, 15 - i, web);
-                        if (i < 8) p.Set(i, 15 - i, web);
+                        float ang = deg * Mathf.Deg2Rad;
+                        for (float d = 0; d <= 11f; d += 0.5f)
+                            p.Set(Mathf.RoundToInt(Mathf.Cos(ang) * d), 15 - Mathf.RoundToInt(Mathf.Sin(ang) * d), web);
                     }
                     foreach (float r in new[] { 4.5f, 8.5f })
-                        for (int a = 0; a <= 12; a++)
+                        for (float deg = 10f; deg <= 80f; deg += 3f)
                         {
-                            float t = a / 12f * Mathf.PI * 0.5f;
-                            p.Set(Mathf.RoundToInt(Mathf.Cos(t) * r), 15 - Mathf.RoundToInt(Mathf.Sin(t) * r), web);
+                            float ang = deg * Mathf.Deg2Rad;
+                            float sag = Mathf.Sin((deg - 10f) / 70f * Mathf.PI * 3f) * 0.6f; // droops between radials
+                            float rr = r - Mathf.Abs(sag);
+                            p.Set(Mathf.RoundToInt(Mathf.Cos(ang) * rr), 15 - Mathf.RoundToInt(Mathf.Sin(ang) * rr), web);
                         }
                     break;
                 default: // candle stub

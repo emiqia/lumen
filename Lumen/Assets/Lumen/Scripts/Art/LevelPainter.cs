@@ -97,16 +97,24 @@ namespace Lumen.Art
                     n.Set(wx, wy, nn);
                 }
 
-            // Occasional crack
+            // Occasional hairline fissure: short and irregular (a strict diagonal zigzag read as
+            // "<" / ">" arrows that competed with the HUD's objective arrow). Blended, not black.
             if (Noise.Hash(tx, ty, seed + 5) > 0.85f)
             {
-                int x = 3 + (int)(Noise.Hash(tx, ty, seed + 6) * 8), y = 12;
-                for (int i = 0; i < 9; i++)
+                int x = 3 + (int)(Noise.Hash(tx, ty, seed + 6) * 9);
+                int y = 4 + (int)(Noise.Hash(tx, ty, seed + 8) * 8);
+                int len = 3 + (int)(Noise.Hash(tx, ty, seed + 9) * 4);
+                for (int i = 0; i < len; i++)
                 {
-                    a.Set(tx * T + x, ty * T + y, Palette.FloorCrack);
-                    y--;
-                    x += Noise.Hash(tx + i, ty, seed + 7) > 0.5f ? 1 : -1;
+                    int cx = tx * T + x, cy = ty * T + y;
+                    a.Set(cx, cy, Palette.Lerp(a.Get(cx, cy), Palette.FloorCrack, 0.7f));
+                    float r = Noise.Hash(tx * 31 + i, ty * 17 + i, seed + 7);
+                    if (r < 0.4f) y--;
+                    else if (r < 0.6f) x++;
+                    else if (r < 0.8f) x--;
+                    else { x++; y--; }
                     x = Mathf.Clamp(x, 1, T - 2);
+                    y = Mathf.Clamp(y, 1, T - 2);
                 }
             }
         }

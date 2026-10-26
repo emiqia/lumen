@@ -24,6 +24,7 @@ namespace Lumen.Player
         public bool IsAlive { get; private set; } = true;
         public bool IsRefueling { get; private set; }
         public float FlareCooldownLeft { get; private set; }
+        public bool CanAffordFlare => fuel.CanAfford(Tuning.flareCost);
         public bool Controllable { get; set; } = true;
 
         // Telemetry for the playtest bot / stats screen.

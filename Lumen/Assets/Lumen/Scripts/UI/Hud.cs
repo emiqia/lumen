@@ -203,7 +203,7 @@ namespace Lumen.UI
             }
 
             float charge = 1f - player.FlareCooldownLeft / tuning.flareCooldown;
-            bool canAfford = player.Fuel > tuning.flareCost + 1f;
+            bool canAfford = player.CanAffordFlare;
             bool ready = charge >= 1f && canAfford;
             flareFill.rectTransform.sizeDelta = new Vector2(Mathf.Round(FuelBarWidth * charge), 2);
             flareFill.color = canAfford ? Palette.FireWhite : Palette.UiDanger;

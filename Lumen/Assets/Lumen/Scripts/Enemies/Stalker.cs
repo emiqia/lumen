@@ -32,6 +32,10 @@ namespace Lumen.Enemies
             wanderTarget = transform.position;
         }
 
+        // Burning in the player's light it falters: stand your ground at full brightness and it
+        // dies before reaching you. Dimmed, you are invisible but harmless.
+        float Slow => Burning ? Tuning.stalkerBurnSlow : 1f;
+
         protected override void Think(float dt)
         {
             stateTimer -= dt;
@@ -63,7 +67,7 @@ namespace Lumen.Enemies
             switch (state)
             {
                 case State.Wander:
-                    if (MoveTo(wanderTarget, Tuning.stalkerWanderSpeed) || stateTimer <= 0f)
+                    if (MoveTo(wanderTarget, Tuning.stalkerWanderSpeed * Slow) || stateTimer <= 0f)
                     {
                         wanderTarget = RandomNearbyFloor(6);
                         stateTimer = Random.Range(3f, 6f);
@@ -73,13 +77,13 @@ namespace Lumen.Enemies
                 case State.Chase:
                     // Don't follow the player into a lit brazier.
                     if (LightField.InBrazierSafeZone(lastSeen, out _)) { state = State.Search; stateTimer = 2f; break; }
-                    MoveTo(lastSeen, Tuning.stalkerChaseSpeed, 0.3f);
+                    MoveTo(lastSeen, Tuning.stalkerChaseSpeed * Slow, 0.3f);
                     if (!sees && stateTimer <= 0f) { state = State.Search; stateTimer = 2.5f; }
                     if (!sees && ((Vector2)transform.position - lastSeen).sqrMagnitude < 0.3f) { state = State.Search; stateTimer = 2.5f; }
                     break;
 
                 case State.Search:
-                    if (MoveTo(lastSeen, Tuning.stalkerWanderSpeed * 1.4f) || stateTimer <= 0f)
+                    if (MoveTo(lastSeen, Tuning.stalkerWanderSpeed * 1.4f * Slow) || stateTimer <= 0f)
                     {
                         state = State.Wander;
                         wanderTarget = RandomNearbyFloor(5);

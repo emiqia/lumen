@@ -17,12 +17,12 @@ MonoBehaviour:
   acceleration: 40
   maxFuel: 100
   drainBright: 1.5
-  drainDim: 0.4
+  drainDim: 0.6
   emberFuel: 12
   hitInvulnerability: 1.1
   lowFuelWarning: 25
   floorCarryBonus: 15
-  floorCarryMinimum: 35
+  floorCarryMinimum: 45
   deathCauseWindow: 3
   minLightRadius: 3.2
   maxLightRadius: 7.5
@@ -37,13 +37,13 @@ MonoBehaviour:
   brazierSafeRadius: 3.2
   brazierDepletedSafeRadius: 1.8
   brazierRefuelPerSecond: 16
-  brazierReserve: 60
+  brazierReserve: 80
   stalkerWanderSpeed: 1.4
   stalkerChaseSpeed: 3.6
   stalkerDamage: 22
-  stalkerBurnTime: 1.8
+  stalkerBurnTime: 1.3
   stalkerSightBase: 1.5
-  stalkerSightLightFactor: 1.15
+  stalkerSightLightFactor: 1
   stalkerMemory: 3
   mothSpeed: 2.6
   mothDiveSpeed: 7.5
@@ -51,7 +51,7 @@ MonoBehaviour:
   mothOrbitRadius: 3
   mothRetreatTime: 2.5
   devourerSpeed: 1.25
-  devourerDamage: 30
+  devourerDamage: 22
   devourerFlaresToKill: 3
   devourerStunTime: 2
   devourerExtinguishTime: 2.5

@@ -59,6 +59,9 @@ namespace Lumen.Bot
                 if (d < 3f && s.Kind != EnemyKind.Moth) repel += (pos - sp).normalized * (3f - d);
                 // An enraged Devourer can't be flared: get away from it, as a person would.
                 if (s is Devourer rage && rage.Enraged && d < 7f) repel += (pos - sp).normalized * (7f - d) * 0.6f;
+                // Keep clear of any Devourer it can't flare right now (cooldown, low fuel or immune).
+                else if (s is Devourer dev && d < 4.5f && (player.FlareCooldownLeft > 0f || !player.CanAffordFlare || !dev.Vulnerable))
+                    repel += (pos - sp).normalized * (4.5f - d) * 0.5f;
             }
 
             bool flareReady = player.FlareCooldownLeft <= 0f && player.Fuel > tuningCost + 8f;

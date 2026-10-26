@@ -36,9 +36,9 @@ namespace Lumen.Level
                 MinRoomSize = 5,
                 MaxRoomSize = 10,
                 Braziers = Mathf.Min(2 + (floor + 1) / 2, 7),
-                Embers = Mathf.Max(13 - floor, 4),
-                Stalkers = Mathf.Min(1 + floor, 14),
-                Moths = floor >= 2 ? Mathf.Min(floor - 1, 8) : 0,
+                Embers = Mathf.Max(13 - floor, 6),
+                Stalkers = Mathf.Min(2 + floor * 2 / 3, 14),
+                Moths = floor >= 2 ? Mathf.Min(floor / 2, 8) : 0,
                 Devourers = floor >= 3 ? 1 + (floor - 3) / 4 : 0,
                 EnemySpeedMultiplier = Mathf.Min(1f + 0.03f * Mathf.Max(0, floor - 8), 1.3f),
                 ExtraLoopChance = 0.35f,
@@ -59,7 +59,7 @@ namespace Lumen.Level
         const int Margin = 2;      // solid border around the map
         const int RoomPadding = 2; // keeps walls at least 2 tiles thick between rooms
         /// <summary>Enemies never spawn closer than this many walking steps to the player.</summary>
-        public const int MinEnemySteps = 12;
+        public const int MinEnemySteps = 16;
 
         public static DungeonMap Generate(int seed, FloorSettings s)
         {

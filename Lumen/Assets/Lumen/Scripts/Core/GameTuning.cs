@@ -18,12 +18,12 @@ namespace Lumen.Core
         [Header("Fuel (= health = time)")]
         public float maxFuel = 100f;
         public float drainBright = 1.5f;
-        public float drainDim = 0.4f;
+        public float drainDim = 0.6f;
         public float emberFuel = 12f;
         public float hitInvulnerability = 1.1f;
         public float lowFuelWarning = 25f;
         public float floorCarryBonus = 15f;    // fuel added when entering the next floor
-        public float floorCarryMinimum = 35f;  // never start a floor below this
+        public float floorCarryMinimum = 45f;  // never start a floor below this
         public float deathCauseWindow = 3f;    // dying this soon after a hit blames the enemy
 
         [Header("Player light")]
@@ -44,16 +44,17 @@ namespace Lumen.Core
         public float brazierSafeRadius = 3.2f;
         public float brazierDepletedSafeRadius = 1.8f;
         public float brazierRefuelPerSecond = 16f;
-        public float brazierReserve = 60f;    // fuel a brazier can give before running dry
+        public float brazierReserve = 80f;    // fuel a brazier can give before running dry
 
         [Header("Stalker")]
         public float stalkerWanderSpeed = 1.4f;
         public float stalkerChaseSpeed = 3.6f;
         public float stalkerDamage = 22f;
-        public float stalkerBurnTime = 1.8f;   // seconds in burn light to die
+        public float stalkerBurnTime = 1.3f;   // seconds in burn light to die
         public float stalkerSightBase = 1.5f;  // sight range = base + player light radius * factor
-        public float stalkerSightLightFactor = 1.15f;
+        public float stalkerSightLightFactor = 1f;
         public float stalkerMemory = 3f;       // seconds it keeps chasing after losing sight
+        public float stalkerBurnSlow = 0.5f;   // speed multiplier while burning: full light is a weapon
 
         [Header("Moth")]
         public float mothSpeed = 2.6f;
@@ -64,7 +65,7 @@ namespace Lumen.Core
 
         [Header("Devourer")]
         public float devourerSpeed = 1.25f;
-        public float devourerDamage = 30f;
+        public float devourerDamage = 22f;
         public int devourerFlaresToKill = 3;
         public float devourerStunTime = 2f;
         public float devourerWoundImmunity = 3f;   // after the stun wears off it shrugs off flares for this long...

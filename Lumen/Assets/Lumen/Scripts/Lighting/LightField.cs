@@ -54,7 +54,7 @@ namespace Lumen.Lighting
         /// <summary>Whether the player can be seen from a point. Range grows with the player's light radius.</summary>
         public static bool CanSeePlayer(Vector2 from, float baseRange, float lightFactor)
         {
-            if (Player == null || !Player.IsAlive) return false;
+            if (Player == null || !Player.IsAlive || Player.IsInvisible) return false;
             Vector2 pp = Player.transform.position;
             float range = baseRange + Player.LightRadius * lightFactor;
             return (pp - from).sqrMagnitude <= range * range && LineOfSight(from, pp);

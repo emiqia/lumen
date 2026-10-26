@@ -67,6 +67,7 @@ namespace Lumen.Level
             // Items and the biome's hazards. Phases are staggered so gates and gusts don't sync up.
             LevelHazards.Set(map);
             foreach (var it in map.Items) ItemPickup.Create(it, root);
+            if (map.Chest.HasValue) Chest.Create(map.Chest.Value, root);
             var rng = new System.Random(seed + 911);
             foreach (var d in map.Doors) level.Doors.Add(Door.Create(d, root, (float)rng.NextDouble()));
             foreach (var w in map.Wind) WindGust.Create(w, root, (float)rng.NextDouble());

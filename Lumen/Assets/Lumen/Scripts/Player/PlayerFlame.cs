@@ -25,9 +25,21 @@ namespace Lumen.Player
         public bool IsAlive { get; private set; } = true;
         public bool IsRefueling { get; private set; }
         public bool IsSprinting { get; private set; }
+        /// <summary>Shadow dust: unseen by everything for a few seconds.</summary>
+        public bool IsInvisible => invisibleFor > 0f;
         public bool InGust { get; private set; }
         /// <summary>The run this flame belongs to (inventory, run tuning). Null in the attract-mode demo.</summary>
-        public RunState Run { get; set; }
+        public RunState Run
+        {
+            get => run;
+            set
+            {
+                run = value;
+                // Each flame casts its own color of light.
+                if (run != null && mainLight != null) mainLight.color = run.Character.Light;
+            }
+        }
+        RunState run;
         public float FlareCooldownLeft { get; private set; }
         public bool CanAffordFlare => fuel.CanAfford(Tuning.flareCost);
         public bool Controllable { get; set; } = true;
@@ -52,10 +64,11 @@ namespace Lumen.Player
         float sparkTimer;
         float hitFlash;
         float splashTimer;
+        float invisibleFor;
         Vector2 gustPush;
         Vector2 lastMoveDir = Vector2.down;
 
-        public static PlayerFlame Create(Vector2 position)
+        public static PlayerFlame Create(Vector2 position, Character character = null)
         {
             var go = new GameObject("Player");
             go.layer = Layers.Player;
@@ -79,10 +92,11 @@ namespace Lumen.Player
 
             var sr = new GameObject("Body").AddComponent<SpriteRenderer>();
             sr.transform.SetParent(go.transform, false);
-            sr.sprite = SpriteBank.Player[0];
+            var frames = SpriteBank.PlayerFor(character);
+            sr.sprite = frames[0];
             sr.sharedMaterial = LumenAssets.I.Unlit; // the flame is its own light source
             var anim = sr.gameObject.AddComponent<SpriteAnimator>();
-            anim.frames = SpriteBank.Player;
+            anim.frames = frames;
             anim.fps = 10f;
 
             go.AddComponent<YSort>();
@@ -136,12 +150,15 @@ namespace Lumen.Player
 
             UpdateHazards(pos, dt);
 
+            if (Controllable && Controls.CycleItemPressed && run != null) { run.CycleActive(); Sfx.I?.Blip(); }
             if (Controllable && Controls.UseItemPressed) TryUseItem();
+            invisibleFor -= dt;
 
             // Light radius follows fuel; dimming clamps it down, sprinting flares it up, gusts beat it down.
             float targetRadius = IsDimmed ? Tuning.dimLightRadius
                 : Mathf.Lerp(Tuning.minLightRadius, Tuning.maxLightRadius, FuelNormalized) * (IsSprinting ? Tuning.sprintLightBoost : 1f);
             if (InGust) targetRadius *= Tuning.windGustDim;
+            if (IsInvisible) targetRadius = Mathf.Min(targetRadius, Tuning.dimLightRadius);
             LightRadius = Mathf.Lerp(LightRadius, targetRadius, dt * 6f);
             flicker.baseRadius = LightRadius;
             flicker.baseIntensity = IsDimmed ? 0.7f : 1.15f;
@@ -159,6 +176,7 @@ namespace Lumen.Player
             float scale = IsDimmed ? 0.8f : 1f;
             sprite.transform.localScale = Vector3.Lerp(sprite.transform.localScale, new Vector3(scale, scale, 1), dt * 12f);
             // A hit flashes the flame pale blue-white for a couple of frames: unmistakable against fire colors.
+            if (IsInvisible) blink = 0.3f + 0.1f * Mathf.Sin(Time.time * 10f); // ghostly while hidden by shadow dust
             sprite.color = hitFlash > 0f ? new Color(0.75f, 0.85f, 1f, 1f) : new Color(1, 1, 1, blink);
             if (Mathf.Abs(Controls.Move.x) > 0.1f) sprite.flipX = Controls.Move.x < 0;
             EmitSparks(dt);
@@ -178,8 +196,9 @@ namespace Lumen.Player
         /// <summary>Biome hazards: running through water costs light; gusts dim and push the flame.</summary>
         void UpdateHazards(Vector2 pos, float dt)
         {
+            bool boots = run != null && run.AshBoots;
             bool inWater = LevelHazards.InWater(pos);
-            if (inWater && IsSprinting) fuel.Add(-Tuning.waterSprintDrain * dt);
+            if (inWater && IsSprinting && !boots) fuel.Add(-Tuning.waterSprintDrain * dt);
             splashTimer -= dt;
             if (inWater && body.linearVelocity.sqrMagnitude > 0.5f && splashTimer <= 0f)
             {
@@ -187,15 +206,34 @@ namespace Lumen.Player
                 PixelParticles.Emit(pos + Random.insideUnitCircle * 0.2f, Random.insideUnitCircle * (IsSprinting ? 2.5f : 1f) + Vector2.up,
                     new Color(0.55f, 0.75f, 0.9f, 0.9f), 0.35f, false, -3f);
             }
-            InGust = LevelHazards.GustAt(pos, out gustPush);
+            InGust = !boots && LevelHazards.GustAt(pos, out gustPush);
         }
 
         void TryUseItem()
         {
-            if (Run == null || Run.Lures <= 0) return;
-            Run.Lures--;
-            Lure.Throw(transform.position, lastMoveDir, transform.parent);
-            GameEvents.RaiseItemUsed(transform.position, Level.ItemKind.Lure);
+            if (run == null || !run.TryConsumeActive(out var used)) return;
+            Vector2 pos = transform.position;
+            switch (used)
+            {
+                case RunState.Active.Lure:
+                    Lure.Throw(pos, lastMoveDir, transform.parent);
+                    GameEvents.RaiseItemUsed(pos, Level.ItemKind.Lure);
+                    break;
+                case RunState.Active.ShadowDust:
+                    invisibleFor = Tuning.shadowDustTime;
+                    PixelParticles.Burst(pos, 30, new Color(0.25f, 0.2f, 0.35f), 2.5f, 0.9f, false, 0.6f);
+                    GameEvents.RaiseItemUsed(pos, Level.ItemKind.ShadowDust);
+                    break;
+                default:
+                    // A free, wide, lethal flare.
+                    GameEvents.RaiseBlast(pos, Tuning.lightBombRadius);
+                    flareGlow = 1.4f;
+                    PixelParticles.RingToRadius(pos, 96, Palette.FireWhite, Tuning.lightBombRadius, 0.5f);
+                    PixelParticles.Burst(pos, 40, Palette.FireYellow, 6f, 0.6f);
+                    CameraRig.Shake(0.6f);
+                    GameEvents.RaiseItemUsed(pos, Level.ItemKind.LightBomb);
+                    break;
+            }
         }
 
         void TryFlare()

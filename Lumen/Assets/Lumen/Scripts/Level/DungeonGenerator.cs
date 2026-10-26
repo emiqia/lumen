@@ -21,6 +21,9 @@ namespace Lumen.Level
         public float ExtraLoopChance;
         public Biome Biome;
         public int Items;
+        /// <summary>Kinds that may spawn (base items plus the ones unlocked with Cenizas).</summary>
+        public ItemKind[] ItemPool;
+        public bool Chest;                // a locked chest in one room, its key somewhere else
         public int Doors, WaterPools, WindZones; // the active biome's hazard
 
         /// <summary>
@@ -47,12 +50,16 @@ namespace Lumen.Level
                 ExtraLoopChance = 0.35f,
                 Biome = BiomeFor(floor),
                 Items = Mathf.Min(1 + floor / 3, 3),
+                ItemPool = BaseItems,
+                Chest = floor >= 2,
                 // Hazards ramp inside each biome's three floors; floor 1 stays clean.
                 Doors = BiomeFor(floor) == Biome.Crypts && floor >= 2 ? Mathf.Min(1 + (floor - 1) % 3 + floor / 9, 5) : 0,
                 WaterPools = BiomeFor(floor) == Biome.Flooded ? Mathf.Min(3 + (floor - 1) % 3 * 2 + floor / 9, 9) : 0,
                 WindZones = BiomeFor(floor) == Biome.Roots ? Mathf.Min(2 + (floor - 1) % 3 + floor / 9, 6) : 0,
             };
         }
+
+        public static readonly ItemKind[] BaseItems = { ItemKind.Lantern, ItemKind.Lure, ItemKind.Oil, ItemKind.Map };
 
         /// <summary>Crypts (1-3), Flooded caverns (4-6), Roots (7-9), then the cycle repeats harder.</summary>
         public static Biome BiomeFor(int floor) => (Biome)((Mathf.Max(1, floor) - 1) / 3 % 3);
@@ -261,6 +268,7 @@ namespace Lumen.Level
             Spawn(EnemyKind.Devourer, s.Devourers);
 
             PlaceItems(map, s, rng, used);
+            if (s.Chest) PlaceChest(map, rng, used);
 
             // Cosmetic props (bones, rubble) on floor cells next to walls.
             for (int i = idx; i < floor.Count && map.Decorations.Count < map.Rooms.Count * 3; i++)
@@ -282,11 +290,33 @@ namespace Lumen.Level
                 var r = map.Rooms[1 + rng.Next(map.Rooms.Count - 1)];
                 var c = new Vector2Int(r.x + 1 + rng.Next(Mathf.Max(1, r.width - 2)), r.y + 1 + rng.Next(Mathf.Max(1, r.height - 2)));
                 if (used.Contains(c) || !map.IsFloor(c) || NearAnyBrazier(map, c, 3f)) continue;
-                double roll = rng.NextDouble();
-                ItemKind kind = roll < 0.3 ? ItemKind.Lantern : roll < 0.55 ? ItemKind.Lure : roll < 0.85 ? ItemKind.Oil : ItemKind.Map;
+                var pool = s.ItemPool != null && s.ItemPool.Length > 0 ? s.ItemPool : FloorSettings.BaseItems;
+                ItemKind kind = pool[rng.Next(pool.Length)];
                 map.Items.Add(new ItemSpawn(kind, c));
                 used.Add(c);
                 i++;
+            }
+        }
+
+        /// <summary>A chest in one room and its key in another, far apart, so opening it is a detour.</summary>
+        static void PlaceChest(DungeonMap map, System.Random rng, HashSet<Vector2Int> used)
+        {
+            if (map.Rooms.Count < 3 || rng.NextDouble() > 0.5) return;
+            Vector2Int RoomCell(RectInt r) => new Vector2Int(r.x + 1 + rng.Next(Mathf.Max(1, r.width - 2)), r.y + 1 + rng.Next(Mathf.Max(1, r.height - 2)));
+            for (int tries = 0; tries < 40; tries++)
+            {
+                var chestRoom = map.Rooms[1 + rng.Next(map.Rooms.Count - 1)];
+                var keyRoom = map.Rooms[1 + rng.Next(map.Rooms.Count - 1)];
+                if (chestRoom.Equals(keyRoom)) continue;
+                var chest = RoomCell(chestRoom);
+                var key = RoomCell(keyRoom);
+                if (used.Contains(chest) || used.Contains(key) || Vector2Int.Distance(chest, key) < 12f) continue;
+                if (NearAnyBrazier(map, chest, 2f) || NearAnyBrazier(map, key, 2f)) continue;
+                map.Chest = chest;
+                map.Items.Add(new ItemSpawn(ItemKind.Key, key));
+                used.Add(chest);
+                used.Add(key);
+                return;
             }
         }
 
@@ -294,6 +324,7 @@ namespace Lumen.Level
         {
             var reserved = new HashSet<Vector2Int>(map.Braziers) { map.PlayerSpawn, map.Exit };
             foreach (var it in map.Items) reserved.Add(it.Cell);
+            if (map.Chest.HasValue) reserved.Add(map.Chest.Value);
 
             // Water: blobs grown inside rooms (never the start room, never on objectives).
             for (int i = 0, tries = 0; i < s.WaterPools && tries < 60; tries++)

@@ -143,12 +143,22 @@ namespace Lumen.Enemies
             body = GetComponent<Rigidbody2D>();
             All.Add(this);
             GameEvents.Flare += OnFlare;
+            GameEvents.Blast += OnBlast;
         }
 
         protected virtual void OnDestroy()
         {
             All.Remove(this);
             GameEvents.Flare -= OnFlare;
+            GameEvents.Blast -= OnBlast;
+        }
+
+        /// <summary>A light bomb: lethal for every shade in radius with line of sight.</summary>
+        protected virtual void OnBlast(Vector2 origin, float radius)
+        {
+            if (IsDead) return;
+            Vector2 p = transform.position;
+            if ((p - origin).sqrMagnitude <= radius * radius && LightField.LineOfSight(origin, p)) Kill(KillCause.Flare);
         }
 
         protected abstract void Think(float dt);

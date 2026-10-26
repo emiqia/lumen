@@ -44,6 +44,10 @@ namespace Lumen.World
             ItemKind.Lantern => new Color(1f, 0.85f, 0.5f),
             ItemKind.Lure => new Color(1f, 0.95f, 0.85f),
             ItemKind.Oil => new Color(0.95f, 0.6f, 0.2f),
+            ItemKind.Key => new Color(1f, 0.85f, 0.3f),
+            ItemKind.ShadowDust => new Color(0.6f, 0.45f, 0.9f),
+            ItemKind.LightBomb => new Color(1f, 1f, 0.85f),
+            ItemKind.AshBoots => new Color(0.8f, 0.75f, 0.7f),
             _ => new Color(0.6f, 0.8f, 1f),
         };
 

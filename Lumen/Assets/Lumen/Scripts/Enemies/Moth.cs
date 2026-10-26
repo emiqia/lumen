@@ -106,7 +106,8 @@ namespace Lumen.Enemies
             Transform best = null;
             float bestScore = 0f;
 
-            if (Player != null && Player.IsAlive)
+            bool hidden = Player != null && (Player.IsInvisible || (Player.IsDimmed && Tuning.mothsIgnoreDimmed));
+            if (Player != null && Player.IsAlive && !hidden)
             {
                 // Attraction scales with the player's light: dim and they lose interest.
                 float range = Player.IsDimmed ? 2.5f : Player.LightRadius * 2.2f;

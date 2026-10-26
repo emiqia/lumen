@@ -104,6 +104,8 @@ namespace Lumen.Enemies
 
         protected override void UpdateBurn(float dt) { } // immune to normal light
 
+        protected override void OnBlast(Vector2 origin, float radius) => OnFlare(origin, radius);
+
         protected override void OnFlare(Vector2 origin, float radius)
         {
             if (IsDead) return;

@@ -31,6 +31,12 @@ namespace Lumen.Bot
             public List<string> blessings = new List<string>();
             public float secondsSprinting;
             public int itemsCollected, itemsUsed, revives;
+            public string character;
+            public int unseenFloors;          // floors cleared without any stalker spotting you
+            public float secondsAtFloor4;     // run time when floor 4 was reached (speed challenge)
+            public int guardiansKilled;
+            public int chestsOpened;
+            public int cenizasEarned;
             public int floorReached;
             public int score;
             public float seconds;

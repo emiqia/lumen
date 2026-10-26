@@ -4,30 +4,48 @@ using Lumen.Art;
 using Lumen.Core;
 using Lumen.FX;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Lumen.UI
 {
+    /// <summary>What the player chose before a run.</summary>
+    public sealed class RunSetup
+    {
+        public Difficulty Difficulty;
+        public Character Character;
+        public List<Provision> Provisions = new List<Provision>();
+        public bool Daily;
+    }
+
     /// <summary>
-    /// Title, difficulty select, options and pause menus. Owns menu input while visible and
-    /// reports the player's choices through events; the GameManager decides what they mean.
+    /// Title, run setup (difficulty, flame, provisions), unlocks, challenges, options and pause.
+    /// Owns menu input while visible and reports choices through events.
     /// </summary>
     public class FrontEnd : MonoBehaviour
     {
-        public enum Mode { Hidden, Title, Difficulty, Options, Pause }
+        public enum Mode { Hidden, Title, Difficulty, Characters, Provisions, Unlocks, Challenges, Options, Pause }
 
         public Mode Current { get; private set; } = Mode.Hidden;
-        public event Action<Difficulty> StartRequested;
+        public event Action<RunSetup> StartRequested;
         public event Action ResumeRequested, AbandonRequested, QuitRequested, SettingsChanged;
 
-        RectTransform root, titlePanel, difficultyPanel, optionsPanel, pausePanel;
-        UnityEngine.UI.Image veil;
-        MenuList titleMenu, difficultyMenu, optionsMenu, pauseMenu;
-        PixelText logo, difficultyDesc, difficultyRecord, hint, difficultyTitle, optionsTitle, pauseTitle;
+        const float FadeTime = 0.22f;
+
+        RectTransform root;
+        readonly Dictionary<Mode, RectTransform> panels = new Dictionary<Mode, RectTransform>();
+        readonly Dictionary<Mode, CanvasGroup> groups = new Dictionary<Mode, CanvasGroup>();
+        readonly Dictionary<Mode, MenuList> menus = new Dictionary<Mode, MenuList>();
+        readonly Dictionary<Mode, (PixelText text, string key)> titles = new Dictionary<Mode, (PixelText, string)>();
+        Image veil, characterPreview;
+        PixelText logo, hint, cenizas;
+        PixelText difficultyDesc, difficultyRecord, characterName, characterQuote, characterAbility;
+        PixelText provisionsTotal, unlockDesc, challengeDesc;
         BookScreen book;
         Mode optionsReturn;
-        Difficulty chosen;
-        float modeT;                       // time since the current panel appeared (for its fade-in)
-        const float FadeTime = 0.22f;
+        RunSetup setup = new RunSetup();
+        readonly HashSet<Provision> basket = new HashSet<Provision>();
+        bool pendingStart;
+        float modeT;
 
         public static FrontEnd Create(Transform canvas, BookScreen book)
         {
@@ -41,44 +59,132 @@ namespace Lumen.UI
             return fe;
         }
 
+        // ------------------------------------------------------------------ building
+
+        RectTransform Panel(Mode mode, string titleKey = null)
+        {
+            var p = Ui.Stretch(root, mode.ToString());
+            panels[mode] = p;
+            groups[mode] = p.gameObject.AddComponent<CanvasGroup>();
+            if (titleKey != null)
+            {
+                var t = Ui.Text(p, "", Ui.Center, new Vector2(0, 82), 2, PixelText.Align.Center, Palette.FireYellow, 380);
+                titles[mode] = (t, titleKey);
+            }
+            return p;
+        }
+
+        MenuList Menu(Mode mode, Vector2 pos, List<MenuItem> items, int select = 0)
+        {
+            var m = MenuList.Create(panels[mode], Ui.Center, pos);
+            m.SetItems(items, select);
+            menus[mode] = m;
+            return m;
+        }
+
+        PixelText Info(Mode mode, Vector2 pos, Color color, float width = 380) =>
+            Ui.Text(panels[mode], "", Ui.Center, pos, 1, PixelText.Align.Center, color, width);
+
         void Build()
         {
             veil = Ui.Box(root, Ui.Center, Vector2.zero, new Vector2(4000, 4000), new Color(0.02f, 0.01f, 0.04f, 0.2f));
             veil.rectTransform.pivot = new Vector2(0.5f, 0.5f);
 
-            // Title: just the logo and a menu. The rules live in the book.
-            titlePanel = Ui.Stretch(root, "Title");
-            logo = Ui.Text(titlePanel, "LUMEN", Ui.Center, new Vector2(0, 44), 6, PixelText.Align.Center, Palette.FireYellow, 380);
-            titleMenu = MenuList.Create(titlePanel, Ui.Center, new Vector2(0, -6));
-            titleMenu.SetItems(new List<MenuItem>
+            // ---- title: the logo and a menu. The rules live in the book.
+            var title = Panel(Mode.Title);
+            logo = Ui.Text(title, "LUMEN", Ui.Center, new Vector2(0, 52), 6, PixelText.Align.Center, Palette.FireYellow, 380);
+            Menu(Mode.Title, new Vector2(0, 4), new List<MenuItem>
             {
-                new MenuItem(() => Locale.Get("menu.play"), () => SetMode(Mode.Difficulty)),
+                new MenuItem(() => Locale.Get("menu.play"), () => { setup = new RunSetup(); SetMode(Mode.Difficulty); }),
+                new MenuItem(() => Locale.Get("menu.daily") + DailyBestLabel(), StartDaily),
+                new MenuItem(() => Locale.Get("menu.unlocks"), () => SetMode(Mode.Unlocks)),
+                new MenuItem(() => Locale.Get("menu.challenges"), () => SetMode(Mode.Challenges)),
                 new MenuItem(() => Locale.Get("menu.guide"), () => book.Open(beforeRun: false)),
                 new MenuItem(() => Locale.Get("menu.options"), () => OpenOptions(Mode.Title)),
                 new MenuItem(() => Locale.Get("menu.quit"), () => QuitRequested?.Invoke()),
             });
 
-            // Difficulty select with a description and the record for the highlighted fire.
-            difficultyPanel = Ui.Stretch(root, "Difficulty");
-            difficultyTitle = Ui.Text(difficultyPanel, "", Ui.Center, new Vector2(0, 70), 2, PixelText.Align.Center, Palette.FireYellow, 380);
-            difficultyMenu = MenuList.Create(difficultyPanel, Ui.Center, new Vector2(0, 40));
-            var items = new List<MenuItem>();
+            // ---- difficulty
+            Panel(Mode.Difficulty, "difficulty.title");
+            var dItems = new List<MenuItem>();
             foreach (var d in DifficultyProfile.All)
             {
                 var level = d;
-                items.Add(new MenuItem(() => Locale.Get(DifficultyProfile.LocaleKey(level)), () => ChooseDifficulty(level)));
+                dItems.Add(new MenuItem(() => Locale.Get(DifficultyProfile.LocaleKey(level)), () =>
+                {
+                    setup.Difficulty = level;
+                    SaveData.LastDifficulty = level;
+                    SetMode(Mode.Characters);
+                }));
             }
-            items.Add(new MenuItem(() => Locale.Get("menu.back"), () => SetMode(Mode.Title)));
-            difficultyMenu.SetItems(items, (int)SaveData.LastDifficulty);
-            difficultyMenu.SelectionChanged += _ => RefreshDifficultyInfo();
-            difficultyDesc = Ui.Text(difficultyPanel, "", Ui.Center, new Vector2(0, -36), 1, PixelText.Align.Center, Palette.UiText, 380);
-            difficultyRecord = Ui.Text(difficultyPanel, "", Ui.Center, new Vector2(0, -60), 1, PixelText.Align.Center, Palette.UiDim, 380);
+            dItems.Add(new MenuItem(() => Locale.Get("menu.back"), () => SetMode(Mode.Title)));
+            Menu(Mode.Difficulty, new Vector2(0, 52), dItems, (int)SaveData.LastDifficulty).SelectionChanged += _ => RefreshInfo();
+            difficultyDesc = Info(Mode.Difficulty, new Vector2(0, -28), Palette.UiText);
+            difficultyRecord = Info(Mode.Difficulty, new Vector2(0, -52), Palette.UiDim);
 
-            // Options.
-            optionsPanel = Ui.Stretch(root, "Options");
-            optionsTitle = Ui.Text(optionsPanel, "", Ui.Center, new Vector2(0, 80), 2, PixelText.Align.Center, Palette.FireYellow, 380);
-            optionsMenu = MenuList.Create(optionsPanel, Ui.Center, new Vector2(0, 58));
-            optionsMenu.SetItems(new List<MenuItem>
+            // ---- characters: list on the left, portrait and personality on the right
+            Panel(Mode.Characters, "char.title");
+            var cItems = new List<MenuItem>();
+            foreach (var c in Character.All)
+            {
+                var flame = c;
+                cItems.Add(new MenuItem(() => Locale.Get(flame.NameKey) + (Meta.IsUnlocked(flame.Id) ? "" : "  (" + flame.Price + ")"),
+                    () => ChooseCharacter(flame)));
+            }
+            cItems.Add(new MenuItem(() => Locale.Get("menu.back"), () => SetMode(Mode.Difficulty)));
+            int sel = Mathf.Max(0, Character.IndexOf(Character.Get(Meta.SelectedCharacter)));
+            Menu(Mode.Characters, new Vector2(-96, 52), cItems, sel).SelectionChanged += _ => RefreshInfo();
+            var cp = panels[Mode.Characters];
+            characterPreview = Ui.Box(cp, Ui.Center, new Vector2(84, 30), new Vector2(80, 80), Color.white);
+            characterPreview.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            characterName = Ui.Text(cp, "", Ui.Center, new Vector2(84, -18), 1, PixelText.Align.Center, Palette.FireYellow, 200);
+            characterQuote = Ui.Text(cp, "", Ui.Center, new Vector2(84, -30), 1, PixelText.Align.Center, Palette.UiDim, 200);
+            characterQuote.rectTransform.pivot = new Vector2(0.5f, 1f);
+            characterAbility = Ui.Text(cp, "", Ui.Center, new Vector2(84, -58), 1, PixelText.Align.Center, Palette.UiText, 200);
+            characterAbility.rectTransform.pivot = new Vector2(0.5f, 1f);
+
+            // ---- provisions (pre-run shop)
+            Panel(Mode.Provisions, "prov.title");
+            var pItems = new List<MenuItem>();
+            foreach (var p in Provision.All)
+            {
+                var item = p;
+                pItems.Add(new MenuItem(() => (basket.Contains(item) ? "[X] " : "[ ] ") + Locale.Get(item.NameKey) + "   " + item.Price,
+                    () => ToggleProvision(item)));
+            }
+            pItems.Add(new MenuItem(() => Locale.Get("prov.start"), BeginRun));
+            pItems.Add(new MenuItem(() => Locale.Get("menu.back"), () => { basket.Clear(); SetMode(Mode.Characters); }));
+            Menu(Mode.Provisions, new Vector2(0, 56), pItems).SelectionChanged += _ => RefreshInfo();
+            provisionsTotal = Info(Mode.Provisions, new Vector2(0, -50), Palette.UiText);
+
+            // ---- unlocks
+            Panel(Mode.Unlocks, "unlock.title");
+            var uItems = new List<MenuItem>();
+            foreach (var u in Unlock.All)
+            {
+                var unlock = u;
+                uItems.Add(new MenuItem(() => Locale.Get(unlock.NameKey) + "   " + (Meta.IsUnlocked(unlock.Id) ? Locale.Get("unlock.owned") : unlock.Price.ToString()),
+                    () => Buy(unlock)));
+            }
+            uItems.Add(new MenuItem(() => Locale.Get("menu.back"), () => SetMode(Mode.Title)));
+            Menu(Mode.Unlocks, new Vector2(0, 62), uItems).SelectionChanged += _ => RefreshInfo();
+            unlockDesc = Info(Mode.Unlocks, new Vector2(0, -78), Palette.UiText);
+
+            // ---- challenges
+            Panel(Mode.Challenges, "chal.title");
+            var chItems = new List<MenuItem>();
+            foreach (var c in Challenge.All)
+            {
+                var ch = c;
+                chItems.Add(new MenuItem(() => (Meta.IsCompleted(ch) ? "* " : "- ") + Locale.Get(ch.NameKey) + "   +" + ch.Reward));
+            }
+            chItems.Add(new MenuItem(() => Locale.Get("menu.back"), () => SetMode(Mode.Title)));
+            Menu(Mode.Challenges, new Vector2(0, 62), chItems).SelectionChanged += _ => RefreshInfo();
+            challengeDesc = Info(Mode.Challenges, new Vector2(0, -70), Palette.UiText);
+
+            // ---- options
+            Panel(Mode.Options, "options.title");
+            Menu(Mode.Options, new Vector2(0, 58), new List<MenuItem>
             {
                 Value("options.music", () => Percent(SaveData.MusicVolume), _ => SaveData.CycleMusic()),
                 Value("options.sfx", () => Percent(SaveData.SfxVolume), _ => SaveData.CycleSfx()),
@@ -91,11 +197,9 @@ namespace Lumen.UI
                 new MenuItem(() => Locale.Get("menu.back"), () => SetMode(optionsReturn)),
             });
 
-            // Pause.
-            pausePanel = Ui.Stretch(root, "Pause");
-            pauseTitle = Ui.Text(pausePanel, "", Ui.Center, new Vector2(0, 40), 3, PixelText.Align.Center, Palette.UiText, 380);
-            pauseMenu = MenuList.Create(pausePanel, Ui.Center, new Vector2(0, 8));
-            pauseMenu.SetItems(new List<MenuItem>
+            // ---- pause
+            Panel(Mode.Pause, "pause.title");
+            Menu(Mode.Pause, new Vector2(0, 8), new List<MenuItem>
             {
                 new MenuItem(() => Locale.Get("menu.resume"), () => ResumeRequested?.Invoke()),
                 new MenuItem(() => Locale.Get("menu.options"), () => OpenOptions(Mode.Pause)),
@@ -103,6 +207,7 @@ namespace Lumen.UI
                 new MenuItem(() => Locale.Get("menu.abandon"), () => AbandonRequested?.Invoke()),
             });
 
+            cenizas = Ui.Text(root, "", Ui.TopRight, new Vector2(-8, -8), 1, PixelText.Align.Right, Palette.FireOrange, 200);
             hint = Ui.Text(root, "", Ui.Bottom, new Vector2(0, 8), 1, PixelText.Align.Center, Palette.UiDim, 380);
             RefreshTexts();
         }
@@ -113,32 +218,83 @@ namespace Lumen.UI
         static string Percent(float v) => Mathf.RoundToInt(v * 100f) + "%";
         static string OnOff(bool v) => Locale.Get(v ? "settings.on" : "settings.off");
 
-        void RefreshTexts()
+        static string DailyBestLabel()
         {
-            difficultyTitle.Text = Locale.Get("difficulty.title");
-            optionsTitle.Text = Locale.Get("options.title");
-            pauseTitle.Text = Locale.Get("pause.title");
-            hint.Text = Locale.Get("menu.hint");
-            titleMenu.Refresh(); difficultyMenu.Refresh(); optionsMenu.Refresh(); pauseMenu.Refresh();
-            RefreshDifficultyInfo();
+            int best = Meta.DailyBest(Meta.TodaySeed);
+            return best > 0 ? "  (" + best + ")" : "";
         }
 
-        void RefreshDifficultyInfo()
+        // ------------------------------------------------------------------ actions
+
+        void ChooseCharacter(Character c)
         {
-            int i = difficultyMenu.Selected;
-            if (i >= DifficultyProfile.All.Length) { difficultyDesc.Text = difficultyRecord.Text = ""; return; }
-            var d = DifficultyProfile.All[i];
-            difficultyDesc.Text = Ui.Wrap(Locale.Get(DifficultyProfile.LocaleKey(d) + ".desc"), 56);
-            int best = SaveData.BestScore(d);
-            difficultyRecord.Text = best > 0
-                ? Locale.Get("difficulty.record") + " " + best + "   " + Locale.Get("title.floor") + " " + SaveData.BestFloor(d)
-                : Locale.Get("difficulty.norecord");
+            if (!Meta.IsUnlocked(c.Id))
+            {
+                // Buying straight from the selection screen is allowed when affordable.
+                foreach (var u in Unlock.All)
+                    if (u.Id == c.Id && Meta.TryUnlock(u)) { Sfx.I?.Blip(); RefreshTexts(); }
+                return;
+            }
+            setup.Character = c;
+            Meta.SelectedCharacter = c.Id;
+            basket.Clear();
+            SetMode(Mode.Provisions);
+        }
+
+        int BasketTotal()
+        {
+            int total = 0;
+            foreach (var p in basket) total += p.Price;
+            return total;
+        }
+
+        void ToggleProvision(Provision p)
+        {
+            if (basket.Contains(p)) basket.Remove(p);
+            else if (BasketTotal() + p.Price <= Meta.Cenizas) basket.Add(p);
+            RefreshInfo();
+        }
+
+        void Buy(Unlock u)
+        {
+            if (Meta.TryUnlock(u)) Sfx.I?.Blip();
+            RefreshTexts();
+        }
+
+        void BeginRun()
+        {
+            if (!Meta.TrySpend(BasketTotal())) return;
+            setup.Provisions = new List<Provision>(basket);
+            basket.Clear();
+            RequestStart();
+        }
+
+        void StartDaily()
+        {
+            setup = new RunSetup { Difficulty = Difficulty.Antorcha, Character = Character.All[0], Daily = true };
+            RequestStart();
+        }
+
+        void RequestStart()
+        {
+            // First time ever: read the book before the first floor.
+            if (!SaveData.TutorialSeen) { pendingStart = true; book.Open(beforeRun: true); }
+            else StartRequested?.Invoke(setup);
+        }
+
+        void OnBookClosed(bool finishedBeforeRun)
+        {
+            if (!pendingStart) return; // opened from Guía: just return to the menu
+            pendingStart = false;
+            SaveData.TutorialSeen = true;
+            StartRequested?.Invoke(setup);
         }
 
         public void ShowTitle() => SetMode(Mode.Title);
+        public void ShowPause() => SetMode(Mode.Pause);
         public void ShowDifficulty() => SetMode(Mode.Difficulty);
         public void ShowOptions() => OpenOptions(Mode.Title);
-        public void ShowPause() => SetMode(Mode.Pause);
+        public void ShowScreen(Mode mode) => SetMode(mode);
         public void Hide() => SetMode(Mode.Hidden);
 
         void OpenOptions(Mode returnTo)
@@ -147,50 +303,72 @@ namespace Lumen.UI
             SetMode(Mode.Options);
         }
 
-        void ChooseDifficulty(Difficulty d)
+        // ------------------------------------------------------------------ refresh
+
+        void RefreshTexts()
         {
-            chosen = d;
-            SaveData.LastDifficulty = d;
-            // First time ever: read the book before the first floor.
-            if (!SaveData.TutorialSeen) book.Open(beforeRun: true);
-            else StartRequested?.Invoke(d);
+            foreach (var kv in titles) kv.Value.text.Text = Locale.Get(kv.Value.key);
+            hint.Text = Locale.Get("menu.hint");
+            RefreshInfo();
         }
 
-        void OnBookClosed(bool finishedBeforeRun)
+        void RefreshInfo()
         {
-            if (Current != Mode.Difficulty) return; // opened from Guía: just return to the menu
-            SaveData.TutorialSeen = true;
-            StartRequested?.Invoke(chosen);
-        }
+            cenizas.Text = Meta.Cenizas + " " + Locale.Get("meta.cenizas");
 
-        RectTransform PanelFor(Mode mode) => mode switch
-        {
-            Mode.Title => titlePanel,
-            Mode.Difficulty => difficultyPanel,
-            Mode.Options => optionsPanel,
-            Mode.Pause => pausePanel,
-            _ => null,
-        };
+            int di = menus[Mode.Difficulty].Selected;
+            if (di < DifficultyProfile.All.Length)
+            {
+                var d = DifficultyProfile.All[di];
+                difficultyDesc.Text = Ui.Wrap(Locale.Get(DifficultyProfile.LocaleKey(d) + ".desc"), 56);
+                int best = SaveData.BestScore(d);
+                difficultyRecord.Text = best > 0
+                    ? Locale.Get("difficulty.record") + " " + best + "   " + Locale.Get("title.floor") + " " + SaveData.BestFloor(d)
+                    : Locale.Get("difficulty.norecord");
+            }
+            else difficultyDesc.Text = difficultyRecord.Text = "";
 
-        static CanvasGroup GroupOf(RectTransform panel)
-        {
-            var g = panel.GetComponent<CanvasGroup>();
-            return g != null ? g : panel.gameObject.AddComponent<CanvasGroup>();
+            int ci = menus[Mode.Characters].Selected;
+            bool showChar = ci < Character.All.Count;
+            characterPreview.enabled = showChar;
+            if (showChar)
+            {
+                var c = Character.All[ci];
+                bool owned = Meta.IsUnlocked(c.Id);
+                characterPreview.sprite = SpriteBank.PlayerFor(c)[0];
+                characterPreview.color = owned ? Color.white : new Color(0.25f, 0.22f, 0.3f, 1f); // locked: a silhouette
+                characterName.Text = Locale.Get(c.NameKey).ToUpperInvariant();
+                characterQuote.Text = Ui.Wrap("\"" + Locale.Get(c.QuoteKey) + "\"", 32);
+                Ui.FitHeight(characterQuote);
+                string lockLine = owned ? "" : "\n\n" + Locale.Get("char.locked") + " " + c.Price + " " + Locale.Get("meta.cenizas");
+                characterAbility.Text = Ui.Wrap(Locale.Get(c.AbilityKey), 32) + lockLine;
+                Ui.FitHeight(characterAbility);
+            }
+            else characterName.Text = characterQuote.Text = characterAbility.Text = "";
+
+            int pi = menus[Mode.Provisions].Selected;
+            string pdesc = pi < Provision.All.Count ? Locale.Get(Provision.All[pi].DescKey) + "\n" : "";
+            provisionsTotal.Text = pdesc + Locale.Get("prov.total") + " " + BasketTotal() + " / " + Meta.Cenizas + " " + Locale.Get("meta.cenizas");
+
+            int ui = menus[Mode.Unlocks].Selected;
+            unlockDesc.Text = ui < Unlock.All.Count ? Ui.Wrap(Locale.Get(Unlock.All[ui].DescKey), 56) : "";
+
+            int chi = menus[Mode.Challenges].Selected;
+            challengeDesc.Text = chi < Challenge.All.Count ? Ui.Wrap(Locale.Get(Challenge.All[chi].DescKey), 56) : "";
+
+            foreach (var m in menus.Values) m.Refresh();
         }
 
         void SetMode(Mode mode)
         {
             Current = mode;
             modeT = 0f;
-            titlePanel.gameObject.SetActive(mode == Mode.Title);
-            difficultyPanel.gameObject.SetActive(mode == Mode.Difficulty);
-            optionsPanel.gameObject.SetActive(mode == Mode.Options);
-            pausePanel.gameObject.SetActive(mode == Mode.Pause);
+            foreach (var kv in panels) kv.Value.gameObject.SetActive(kv.Key == mode);
             veil.gameObject.SetActive(mode != Mode.Hidden);
             hint.gameObject.SetActive(mode != Mode.Hidden);
+            cenizas.gameObject.SetActive(mode != Mode.Hidden && mode != Mode.Pause);
             // Over the attract demo the veil is light; over a paused run or submenus, darker.
-            veil.color = new Color(0.02f, 0.01f, 0.04f, mode == Mode.Title ? 0.2f : 0.75f);
-            if (mode == Mode.Difficulty) RefreshDifficultyInfo();
+            veil.color = new Color(0.02f, 0.01f, 0.04f, mode == Mode.Title ? 0.2f : 0.78f);
             RefreshTexts();
         }
 
@@ -198,8 +376,7 @@ namespace Lumen.UI
         {
             // Panels fade in instead of popping.
             modeT += Time.unscaledDeltaTime;
-            var panel = PanelFor(Current);
-            if (panel != null) GroupOf(panel).alpha = Mathf.Clamp01(modeT / FadeTime);
+            if (groups.TryGetValue(Current, out var g)) g.alpha = Mathf.Clamp01(modeT / FadeTime);
 
             // The book has its own hint line; don't overlap it with the menu's.
             hint.gameObject.SetActive(Current != Mode.Hidden && !book.IsOpen);
@@ -213,22 +390,21 @@ namespace Lumen.UI
             }
 
             var input = MenuInput.Read();
-            var menu = Current switch
-            {
-                Mode.Title => titleMenu,
-                Mode.Difficulty => difficultyMenu,
-                Mode.Options => optionsMenu,
-                _ => pauseMenu,
-            };
             if (input.Back)
             {
                 Sfx.I?.Blip();
-                if (Current == Mode.Pause) ResumeRequested?.Invoke();
-                else if (Current == Mode.Options) SetMode(optionsReturn);
-                else if (Current == Mode.Difficulty) SetMode(Mode.Title);
+                switch (Current)
+                {
+                    case Mode.Pause: ResumeRequested?.Invoke(); break;
+                    case Mode.Options: SetMode(optionsReturn); break;
+                    case Mode.Characters: SetMode(Mode.Difficulty); break;
+                    case Mode.Provisions: basket.Clear(); SetMode(Mode.Characters); break;
+                    case Mode.Title: break;
+                    default: SetMode(Mode.Title); break;
+                }
                 return;
             }
-            if (menu.Navigate(input)) Sfx.I?.Blip();
+            if (menus.TryGetValue(Current, out var menu) && menu.Navigate(input)) Sfx.I?.Blip();
         }
     }
 }

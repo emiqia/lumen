@@ -56,7 +56,8 @@ namespace Lumen.World
             {
                 Vector2 pp = player.transform.position;
                 float d = Vector2.Distance(pp, home);
-                if (d < 1.8f) { home = Vector2.MoveTowards(home, pp, Time.deltaTime * (6f - d * 2f)); }
+                float magnet = 1.8f * GameTuning.I.emberMagnetMultiplier;
+                if (d < magnet) { home = Vector2.MoveTowards(home, pp, Time.deltaTime * Mathf.Max(2f, 6f - d * 2f / GameTuning.I.emberMagnetMultiplier)); }
             }
             transform.position = target;
         }

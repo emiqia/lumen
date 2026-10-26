@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using Lumen.Art;
 using Lumen.Bot;
 using Lumen.Enemies;
@@ -64,6 +65,8 @@ namespace Lumen.Core
         LevelInstance level;
         PlayerFlame player;
         int runSeed;
+        int cenizasBonus;     // extra Cenizas found in chests this run
+        bool seenThisFloor;   // for the "ghost" challenge: did any stalker spot you on this floor?
         int flowVersion;       // bumped on every run start / title entry, so stale coroutines can tell
         bool gameOverShown;    // game-over input is ignored until the screen is actually up
         static float hitStopUntil;
@@ -99,13 +102,14 @@ namespace Lumen.Core
             frontEnd = FrontEnd.Create(canvas.transform, book);
             book.transform.SetAsLastSibling(); // the book opens on top of the menus
 
-            frontEnd.StartRequested += d => { Sfx.I?.Blip(); StartRun(d); };
+            frontEnd.StartRequested += s => { Sfx.I?.Blip(); StartRun(s.Difficulty, s.Character ?? Character.All[0], s.Provisions, s.Daily); };
             frontEnd.ResumeRequested += () => SetPaused(false);
             frontEnd.AbandonRequested += () => { SetPaused(false); EnterTitle(); };
             frontEnd.QuitRequested += Application.Quit;
             frontEnd.SettingsChanged += ApplySettings;
             blessings.Chosen += OnBlessingChosen;
             ItemPickup.Collector = TryCollect;
+            Chest.Opener = TryOpenChest;
 
             Telemetry = new RunTelemetry();
             score = new ScoreService(Tuning);
@@ -123,6 +127,7 @@ namespace Lumen.Core
             GameEvents.PlayerReachedExit += CompleteFloor;
             GameEvents.ItemCollected += (_, kind) => hud.Announce("", Locale.Get("item." + kind), 1.6f);
             GameEvents.PlayerRevived += _ => hud.Announce(Locale.Get("hud.revived"), "", 2f, Palette.FireYellow);
+            GameEvents.StalkerAlerted += _ => { if (Current == State.Playing) seenThisFloor = true; };
         }
 
         /// <summary>Applies persisted settings: brightness, audio volumes and window mode.</summary>
@@ -196,12 +201,23 @@ namespace Lumen.Core
         /// <summary>Starts a run at the default difficulty (used by tests and playtests).</summary>
         public void StartRun(int seed) => StartRun(Difficulty.Antorcha, seed);
 
-        public void StartRun(Difficulty difficulty, int seed = -1)
+        public void StartRun(Difficulty difficulty, int seed = -1) => StartRun(difficulty, Character.All[0], null, false, seed);
+
+        /// <param name="provisions">Bought in the pre-run shop (already paid for).</param>
+        /// <param name="daily">Daily seed: fixed seed, Antorcha, Lumen, no provisions, own record.</param>
+        public void StartRun(Difficulty difficulty, Character character, List<Provision> provisions, bool daily, int seed = -1)
         {
             flowVersion++;
-            runSeed = seed < 0 ? Random.Range(0, 999999) : seed;
+            runSeed = daily ? Meta.TodaySeed : seed < 0 ? Random.Range(0, 999999) : seed;
             EndRunState();
-            run = new RunState(difficulty, GameTuning.Base);
+            run = new RunState(difficulty, GameTuning.Base, character, daily);
+            if (provisions != null) foreach (var p in provisions) p.Apply(run);
+            if (run.StartWithBlessing)
+            {
+                var first = Blessing.Offer(runSeed, 1, run.Blessings, Meta.IsUnlocked);
+                if (first.Count > 0) run.Take(first[0]);
+            }
+            cenizasBonus = 0;
             GameTuning.Active = run.Tuning;   // every system now reads the difficulty-adjusted numbers
             darkness.Tuning = run.Tuning;
             frontEnd.Hide();
@@ -232,7 +248,12 @@ namespace Lumen.Core
             player.SetFuel(FuelModel.CarryToNextFloor(carried, Tuning.floorCarryBonus, Tuning.floorCarryMinimum, Tuning.maxFuel));
 
             // Score and telemetry start once the run's own floor exists, never during the fade from the demo.
-            if (floor == 1) Telemetry.BeginRun(runSeed, run.Difficulty);
+            if (floor == 1)
+            {
+                Telemetry.BeginRun(runSeed, run.Difficulty);
+                Telemetry.Current.character = run.Character.Id;
+            }
+            if (floor == 4 && Telemetry.Current != null) Telemetry.Current.secondsAtFloor4 = RunTime;
             score.Counting = true;
             hud.ClearTransient();
             hud.Announce(FloorNames.Title(floor, seed), Locale.Get("floor.enter") + " " + floor + "  -  " + FloorNames.Subtitle(floor), 3.2f);
@@ -270,11 +291,56 @@ namespace Lumen.Core
                     if (run.Lures >= RunState.MaxLures) return Full();
                     run.Lures++;
                     return true;
+                case ItemKind.ShadowDust:
+                    if (run.ShadowDust >= RunState.MaxActive) return Full();
+                    run.ShadowDust++;
+                    return true;
+                case ItemKind.LightBomb:
+                    if (run.LightBombs >= RunState.MaxActive) return Full();
+                    run.LightBombs++;
+                    return true;
+                case ItemKind.Key:
+                    run.Keys = true;
+                    return true;
+                case ItemKind.Compass:
+                    run.Compass = true;
+                    return true;
+                case ItemKind.AshBoots:
+                    if (run.AshBoots) return Full();
+                    run.AshBoots = true;
+                    return true;
                 default:
                     hud.RevealAllBraziers = true;
                     hud.Hint(Locale.Get("item.map.used"), 3f);
                     return true;
             }
+        }
+
+        /// <summary>Opens this floor's chest if the run carries its key: a rare item and some Cenizas.</summary>
+        bool TryOpenChest(Vector2 at)
+        {
+            if (run == null || !run.Keys) { hud.Hint(Locale.Get("chest.locked"), 1.5f); return false; }
+            run.Keys = false;
+            var rewards = new List<ItemKind> { ItemKind.Lantern, ItemKind.Oil };
+            foreach (var k in new[] { ItemKind.LightBomb, ItemKind.ShadowDust, ItemKind.Compass })
+                if (Meta.IsUnlocked(k.ToString())) rewards.Add(k);
+            var reward = rewards[Random.Range(0, rewards.Count)];
+            if (!TryCollect(reward)) run.Oil = Mathf.Min(run.Oil + 1, RunState.MaxOil);
+            int cenizas = Random.Range(20, 41);
+            cenizasBonus += cenizas;
+            if (Telemetry.Current != null) Telemetry.Current.chestsOpened++;
+            hud.Announce("", Locale.Get("item." + reward) + "   +" + cenizas + " " + Locale.Get("meta.cenizas"), 2.2f);
+            return true;
+        }
+
+        /// <summary>Base items plus the ones unlocked with Cenizas (the daily run uses only the base set).</summary>
+        ItemKind[] ItemPool()
+        {
+            var pool = new List<ItemKind>(FloorSettings.BaseItems);
+            if (run != null && !run.Daily)
+                foreach (var k in new[] { ItemKind.Compass, ItemKind.ShadowDust, ItemKind.LightBomb, ItemKind.AshBoots })
+                    if (Meta.IsUnlocked(k.ToString())) pool.Add(k);
+            return pool.ToArray();
         }
 
         bool Full()
@@ -291,9 +357,17 @@ namespace Lumen.Core
             darkness.Reset();
 
             var settings = FloorSettings.ForFloor(floor);
+            settings.ItemPool = ItemPool();
             var map = DungeonGenerator.Generate(seed, settings);
             level = LevelBuilder.Build(map, settings, seed, transform);
-            player = PlayerFlame.Create(DungeonMap.CellToWorld(map.PlayerSpawn));
+            player = PlayerFlame.Create(DungeonMap.CellToWorld(map.PlayerSpawn), run?.Character);
+            seenThisFloor = false;
+            if (run != null)
+            {
+                run.Keys = false;
+                run.Compass = false;
+                if (run.Tuning.lanternEachFloor) run.Lantern = true; // Rescoldo: a fresh lantern every floor
+            }
             player.transform.SetParent(level.Root.transform);
             if (input != null) player.Controls = input();
             player.Run = run;
@@ -342,6 +416,7 @@ namespace Lumen.Core
             if (Current != State.Playing) return;
             score.Add(score.FloorBonus(Floor, FloorTime), player.transform.position);
             Telemetry.EndFloor(FloorTime, player.Fuel);
+            if (!seenThisFloor && Telemetry.Current != null) Telemetry.Current.unseenFloors++;
             GameEvents.RaiseFloorCleared(Floor);
             player.Controllable = false;
 
@@ -388,9 +463,27 @@ namespace Lumen.Core
             gameOverShown = false;
             score.Counting = false;
             Telemetry.EndRun(cause, Floor, Score, RunTime, FloorTime);
-            // Only human runs count for records: bot playtests must never touch the player's save.
-            bool record = InputOverride == null && SaveData.SubmitRun(run.Difficulty, Score, Floor);
-            StartCoroutine(ShowGameOverDelayed(cause, record));
+            var summary = SettleRun();
+            StartCoroutine(ShowGameOverDelayed(cause, summary.record, summary.text));
+        }
+
+        /// <summary>
+        /// End-of-run bookkeeping: records, Cenizas and challenges. Only human runs touch the save:
+        /// bot playtests never earn Cenizas or records.
+        /// </summary>
+        (bool record, string text) SettleRun()
+        {
+            var last = Telemetry.Runs.Count > 0 ? Telemetry.Runs[Telemetry.Runs.Count - 1] : null;
+            int cenizas = Meta.CenizasFor(Score) + cenizasBonus;
+            if (last != null) last.cenizasEarned = cenizas;
+            if (InputOverride != null) return (false, "");
+
+            bool record = run.Daily ? Meta.SubmitDaily(runSeed, Score) : SaveData.SubmitRun(run.Difficulty, Score, Floor);
+            Meta.Earn(cenizas);
+            var lines = new System.Text.StringBuilder("+" + cenizas + " " + Locale.Get("meta.cenizas"));
+            foreach (var c in Meta.CompleteChallenges(last))
+                lines.Append("\n" + Locale.Get("chal.done") + ": " + Locale.Get(c.NameKey) + "  +" + c.Reward);
+            return (record, lines.ToString());
         }
 
         /// <summary>Ends the current run without a death (used by playtests that hit their time limit).</summary>
@@ -403,13 +496,13 @@ namespace Lumen.Core
             Telemetry.EndRun(reason, Floor, Score, RunTime, FloorTime, player != null ? player.Fuel : 0f);
         }
 
-        IEnumerator ShowGameOverDelayed(string cause, bool record)
+        IEnumerator ShowGameOverDelayed(string cause, bool record, string rewards)
         {
             int version = flowVersion;
             yield return new WaitForSecondsRealtime(Headless ? 0.1f : 1.4f);
             // The player may have left (title) or a playtest may have restarted meanwhile.
             if (version != flowVersion || Current != State.GameOver) yield break;
-            if (!Headless) screens.ShowGameOver(cause, Score, Floor, RunTime, record, run.Difficulty);
+            if (!Headless) screens.ShowGameOver(cause, Score, Floor, RunTime, record, run.Difficulty, rewards);
             gameOverShown = true;
         }
 

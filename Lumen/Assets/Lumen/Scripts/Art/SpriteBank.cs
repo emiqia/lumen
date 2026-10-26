@@ -27,6 +27,8 @@ namespace Lumen.Art
         public static Sprite Arrow { get; private set; }
         public static Sprite ExitMarker { get; private set; }
         public static Sprite DoorVertical { get; private set; }
+        public static Sprite ChestClosed { get; private set; }
+        public static Sprite ChestOpen { get; private set; }
         public static Sprite DoorHorizontal { get; private set; }
         static Sprite[] items;
         public static Sprite Item(Level.ItemKind kind) => items[(int)kind];
@@ -78,7 +80,14 @@ namespace Lumen.Art
                 Make(LureCanvas(), "item_lure", new Vector2(0.5f, 0.5f)),
                 Make(OilCanvas(), "item_oil", new Vector2(0.5f, 0.5f)),
                 Make(MapCanvas(), "item_map", new Vector2(0.5f, 0.5f)),
+                Make(KeyCanvas(), "item_key", new Vector2(0.5f, 0.5f)),
+                Make(CompassCanvas(), "item_compass", new Vector2(0.5f, 0.5f)),
+                Make(ShadowDustCanvas(), "item_dust", new Vector2(0.5f, 0.5f)),
+                Make(LightBombCanvas(), "item_bomb", new Vector2(0.5f, 0.5f)),
+                Make(BootsCanvas(), "item_boots", new Vector2(0.5f, 0.5f)),
             };
+            ChestClosed = Make(ChestCanvas(false), "chest_closed", new Vector2(0.5f, 0.3f));
+            ChestOpen = Make(ChestCanvas(true), "chest_open", new Vector2(0.5f, 0.3f));
             Ember = Frames(4, i => EmberFrame(i), "ember", new Vector2(0.5f, 0.5f));
             PortalClosed = Make(PortalCanvas(false, 0), "portal_closed", new Vector2(0.5f, 0.5f));
             PortalOpen = Frames(4, i => PortalCanvas(true, i), "portal_open", new Vector2(0.5f, 0.5f));
@@ -129,7 +138,24 @@ namespace Lumen.Art
 
         // ---------------------------------------------------------------- Player
         // A little living flame: teardrop shape, noise-animated tip, two dark eyes.
-        static PixelCanvas PlayerFrame(int frame)
+        static readonly Dictionary<string, Sprite[]> characterFrames = new Dictionary<string, Sprite[]>();
+
+        /// <summary>The flame animation recolored with a character's palette (cached).</summary>
+        public static Sprite[] PlayerFor(Core.Character c)
+        {
+            if (c == null || c.Id == "lumen") return Player;
+            if (!characterFrames.TryGetValue(c.Id, out var frames))
+            {
+                frames = Frames(6, i => PlayerFrame(i, c.Core, c.Mid, c.Outer, c.Edge), "player_" + c.Id, new Vector2(0.5f, 0.25f));
+                characterFrames[c.Id] = frames;
+            }
+            return frames;
+        }
+
+        static PixelCanvas PlayerFrame(int frame) =>
+            PlayerFrame(frame, Palette.FireWhite, Palette.FireYellow, Palette.FireOrange, Palette.FireRed);
+
+        static PixelCanvas PlayerFrame(int frame, Color32 core, Color32 mid, Color32 outer, Color32 edge)
         {
             var p = new PixelCanvas(16, 16);
             float phase = frame / 6f * Mathf.PI * 2f;
@@ -144,10 +170,10 @@ namespace Lumen.Art
                     float n = Noise.Value(x * 0.7f, y * 0.7f - frame * 1.3f, 7) * 0.35f;
                     float heat = 1f - d - n * Mathf.Clamp01(fy + 0.2f);
                     if (fy > 1f || heat <= 0f) continue;
-                    Color32 c = heat > 0.72f ? Palette.FireWhite
-                              : heat > 0.5f ? Palette.FireYellow
-                              : heat > 0.28f ? Palette.FireOrange
-                              : Palette.FireRed;
+                    Color32 c = heat > 0.72f ? core
+                              : heat > 0.5f ? mid
+                              : heat > 0.28f ? outer
+                              : edge;
                     p.Set(x, y, c);
                 }
             // Eyes (blink on frame 3)
@@ -384,6 +410,88 @@ namespace Lumen.Art
             p.Rect(3, 11, 10, 1, Palette.BoneDark);
             p.Set(5, 9, Palette.FireRed); p.Set(10, 6, Palette.FireRed); p.Set(8, 8, Palette.FireRed); // marked fires
             for (int x = 5; x < 10; x++) p.Set(x, 7 + (x % 2), Palette.StoneDark); // a path
+            p.Outline(new Color32(10, 8, 14, 255));
+            return p;
+        }
+
+        static PixelCanvas KeyCanvas()
+        {
+            var p = new PixelCanvas(16, 16);
+            var gold = Palette.FireYellow; var dark = new Color32(160, 110, 30, 255);
+            p.Ellipse(5, 9, 3f, 3f, gold); p.Ellipse(5, 9, 1.2f, 1.2f, Palette.Clear); // bow
+            p.Rect(7, 8, 7, 2, gold);                                                  // shaft
+            p.Rect(11, 5, 1, 3, dark); p.Rect(13, 5, 1, 3, dark);                     // bit
+            p.Outline(new Color32(10, 8, 14, 255));
+            return p;
+        }
+
+        static PixelCanvas CompassCanvas()
+        {
+            var p = new PixelCanvas(16, 16);
+            p.Ellipse(8, 8, 5.5f, 5.5f, new Color32(160, 110, 30, 255));
+            p.Ellipse(8, 8, 4.5f, 4.5f, Palette.Bone);
+            for (int i = 0; i < 4; i++) { p.Set(8, 9 + i, Palette.FireRed); p.Set(8, 7 - i, Palette.StoneDark); } // needle
+            p.Set(8, 8, Palette.Metal);
+            p.Outline(new Color32(10, 8, 14, 255));
+            return p;
+        }
+
+        static PixelCanvas ShadowDustCanvas()
+        {
+            var p = new PixelCanvas(16, 16);
+            p.Rect(6, 11, 4, 2, Palette.BoneDark);                              // pouch tie
+            p.Ellipse(8, 7, 4.5f, 4f, new Color32(60, 45, 80, 255));            // pouch
+            p.Set(6, 8, new Color32(140, 110, 190, 255)); p.Set(9, 6, new Color32(140, 110, 190, 255)); // glints
+            p.Set(11, 12, new Color32(120, 95, 170, 200)); p.Set(12, 13, new Color32(120, 95, 170, 160)); // wisps
+            p.Outline(new Color32(10, 8, 14, 255));
+            return p;
+        }
+
+        static PixelCanvas LightBombCanvas()
+        {
+            var p = new PixelCanvas(16, 16);
+            p.Ellipse(8, 7, 4.5f, 4.5f, new Color32(230, 230, 210, 255));       // glass orb
+            p.Ellipse(8, 7, 2.5f, 2.5f, Palette.FireYellow);
+            p.Set(8, 7, Palette.FireWhite);
+            p.Rect(7, 12, 2, 2, Palette.Metal);                                  // fuse cap
+            p.Set(9, 14, Palette.FireOrange);
+            p.Outline(new Color32(10, 8, 14, 255));
+            return p;
+        }
+
+        static PixelCanvas BootsCanvas()
+        {
+            var p = new PixelCanvas(16, 16);
+            var leather = new Color32(70, 60, 60, 255); var ash = new Color32(150, 140, 135, 255);
+            p.Rect(4, 4, 3, 7, leather); p.Rect(4, 3, 5, 2, leather);            // left boot
+            p.Rect(9, 4, 3, 7, leather); p.Rect(9, 3, 5, 2, leather);            // right boot
+            p.Rect(4, 10, 3, 1, ash); p.Rect(9, 10, 3, 1, ash);                  // ash-grey cuffs
+            p.Outline(new Color32(10, 8, 14, 255));
+            return p;
+        }
+
+        static PixelCanvas ChestCanvas(bool open)
+        {
+            var p = new PixelCanvas(16, 16);
+            var wood = new Color32(110, 70, 40, 255); var woodDark = new Color32(70, 42, 24, 255);
+            var band = Palette.Metal; var gold = Palette.FireYellow;
+            p.Rect(2, 2, 12, 6, wood);                 // body
+            p.Rect(2, 2, 12, 1, woodDark);
+            p.Rect(4, 2, 1, 6, band); p.Rect(11, 2, 1, 6, band);
+            if (open)
+            {
+                p.Rect(2, 8, 12, 2, woodDark);         // inside
+                p.Rect(4, 8, 8, 1, gold);              // treasure glint
+                p.Rect(2, 11, 12, 3, wood);            // lid thrown back
+                p.Rect(2, 13, 12, 1, woodDark);
+            }
+            else
+            {
+                p.Rect(2, 8, 12, 4, wood);             // lid
+                p.Rect(2, 11, 12, 1, woodDark);
+                p.Rect(4, 8, 1, 4, band); p.Rect(11, 8, 1, 4, band);
+                p.Rect(7, 6, 2, 3, gold);              // lock
+            }
             p.Outline(new Color32(10, 8, 14, 255));
             return p;
         }

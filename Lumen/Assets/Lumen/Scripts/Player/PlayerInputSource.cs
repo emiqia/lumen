@@ -14,6 +14,7 @@ namespace Lumen.Player
         bool Sprint { get; }
         bool FlarePressed { get; }   // true only on the frame it was pressed
         bool UseItemPressed { get; } // true only on the frame it was pressed
+        bool CycleItemPressed { get; }
         void Tick();
     }
 
@@ -24,11 +25,12 @@ namespace Lumen.Player
         public bool Sprint { get; private set; }
         public bool FlarePressed { get; private set; }
         public bool UseItemPressed { get; private set; }
+        public bool CycleItemPressed { get; private set; }
 
         public void Tick()
         {
             Vector2 move = Vector2.zero;
-            bool dim = false, sprint = false, flare = false, use = false;
+            bool dim = false, sprint = false, flare = false, use = false, cycle = false;
 
             var kb = Keyboard.current;
             if (kb != null)
@@ -41,6 +43,7 @@ namespace Lumen.Player
                 dim |= kb.leftCtrlKey.isPressed || kb.rightCtrlKey.isPressed;
                 flare |= kb.spaceKey.wasPressedThisFrame;
                 use |= kb.eKey.wasPressedThisFrame;
+                cycle |= kb.qKey.wasPressedThisFrame || kb.tabKey.wasPressedThisFrame;
             }
 
             var pad = Gamepad.current;
@@ -53,6 +56,7 @@ namespace Lumen.Player
                 sprint |= pad.rightTrigger.isPressed;
                 flare |= pad.buttonSouth.wasPressedThisFrame;
                 use |= pad.buttonNorth.wasPressedThisFrame;
+                cycle |= pad.leftShoulder.wasPressedThisFrame || pad.rightShoulder.wasPressedThisFrame;
             }
 
             Move = Vector2.ClampMagnitude(move, 1f);
@@ -60,6 +64,7 @@ namespace Lumen.Player
             Sprint = sprint && !dim; // sneaking wins over running
             FlarePressed = flare;
             UseItemPressed = use;
+            CycleItemPressed = cycle;
         }
     }
 }

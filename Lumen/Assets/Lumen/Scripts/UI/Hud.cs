@@ -27,7 +27,7 @@ namespace Lumen.UI
         Image fuelFill, fuelBack, flareFill, hintBand;
         readonly List<Image> arrows = new List<Image>();     // pooled objective markers
         readonly List<Transform> arrowTargets = new List<Transform>();
-        Image lanternIcon, oilIcon, lureIcon;
+        Image lanternIcon, oilIcon, lureIcon, keyIcon;
         PixelText oilCount, lureCount, timerText;
 
         /// <summary>Set when a map is picked up: every unlit brazier on the floor gets an edge marker.</summary>
@@ -99,7 +99,8 @@ namespace Lumen.UI
             oilIcon = Ui.Sprite(root, SpriteBank.Item(Level.ItemKind.Oil), Ui.TopLeft, new Vector2(34, -46), 1);
             oilCount = Ui.Text(root, "", Ui.TopLeft, new Vector2(42, -46), 1, PixelText.Align.Left, Palette.UiText, 16);
             lureIcon = Ui.Sprite(root, SpriteBank.Item(Level.ItemKind.Lure), Ui.TopLeft, new Vector2(58, -46), 1);
-            lureCount = Ui.Text(root, "", Ui.TopLeft, new Vector2(66, -46), 1, PixelText.Align.Left, Palette.UiText, 40);
+            lureCount = Ui.Text(root, "", Ui.TopLeft, new Vector2(66, -46), 1, PixelText.Align.Left, Palette.UiText, 80);
+            keyIcon = Ui.Sprite(root, SpriteBank.Item(Level.ItemKind.Key), Ui.TopLeft, new Vector2(118, -46), 1);
 
             timerText = Ui.Text(root, "", Ui.TopRight, new Vector2(-6, -28), 1, PixelText.Align.Right, Palette.UiText, 140);
 
@@ -252,7 +253,8 @@ namespace Lumen.UI
             var player = LightField.Player;
             if (gm.Current == GameManager.State.Playing && player != null && gm.Level != null && cam != null)
             {
-                if (gm.ExitOpen) arrowTargets.Add(gm.Level.Exit.transform);
+                if (gm.ExitOpen || (gm.Run != null && gm.Run.Compass)) arrowTargets.Add(gm.Level.Exit.transform);
+                if (gm.ExitOpen) { }
                 else if (RevealAllBraziers)
                 {
                     foreach (var b in gm.Level.Braziers) if (!b.IsLit) arrowTargets.Add(b.transform);
@@ -264,7 +266,13 @@ namespace Lumen.UI
                 }
             }
             for (int i = 0; i < arrows.Count; i++)
-                PlaceArrow(arrows[i], i < arrowTargets.Count ? arrowTargets[i] : null, gm.ExitOpen);
+            {
+                var target = i < arrowTargets.Count ? arrowTargets[i] : null;
+                bool exit = gm.Level != null && target == gm.Level.Exit.transform;
+                PlaceArrow(arrows[i], target, exit);
+                // A compass shows the exit before it opens: same diamond, but grey.
+                if (exit && !gm.ExitOpen) arrows[i].color = new Color(0.6f, 0.65f, 0.7f, 0.85f);
+            }
         }
 
         void PlaceArrow(Image arrow, Transform target, bool exit)
@@ -301,8 +309,14 @@ namespace Lumen.UI
             lanternIcon.enabled = show && run.Lantern;
             oilIcon.enabled = show && run.Oil > 0;
             oilCount.Text = show && run.Oil > 1 ? "X" + run.Oil : "";
-            lureIcon.enabled = show && run.Lures > 0;
-            lureCount.Text = show && run.Lures > 0 ? (run.Lures > 1 ? "X" + run.Lures + " " : "") + "(E)" : "";
+            // The selected active item (lure / shadow dust / light bomb): E uses it, Q switches.
+            int count = show ? run.CountOf(run.Selected) : 0;
+            if (show && count == 0) { run.CycleActive(); count = run.CountOf(run.Selected); }
+            lureIcon.enabled = show && count > 0;
+            if (lureIcon.enabled) lureIcon.sprite = SpriteBank.Item(ActiveKind(run.Selected));
+            bool several = show && (run.Lures > 0 ? 1 : 0) + (run.ShadowDust > 0 ? 1 : 0) + (run.LightBombs > 0 ? 1 : 0) > 1;
+            lureCount.Text = count > 0 ? (count > 1 ? "X" + count + " " : "") + "E" + (several ? "  Q" : "") : "";
+            keyIcon.enabled = show && run.Keys;
 
             // Speedrun timer (optional): run time with tenths.
             if (SaveData.SpeedrunTimer && run != null)
@@ -312,6 +326,13 @@ namespace Lumen.UI
             }
             else timerText.Text = "";
         }
+
+        static Level.ItemKind ActiveKind(RunState.Active a) => a switch
+        {
+            RunState.Active.ShadowDust => Level.ItemKind.ShadowDust,
+            RunState.Active.LightBomb => Level.ItemKind.LightBomb,
+            _ => Level.ItemKind.Lure,
+        };
 
         static Transform NearestUnlit(List<Brazier> braziers, Vector2 from)
         {

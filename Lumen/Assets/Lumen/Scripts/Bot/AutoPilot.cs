@@ -20,6 +20,7 @@ namespace Lumen.Bot
         public bool FlarePressed { get; private set; }
         public bool Sprint { get; private set; }
         public bool UseItemPressed { get; private set; }
+        public bool CycleItemPressed => false;
 
         enum Goal { None, LightBrazier, Refuel, Ember, Exit }
 

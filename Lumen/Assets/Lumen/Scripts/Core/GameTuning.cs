@@ -31,6 +31,15 @@ namespace Lumen.Core
         public float floorCarryMinimum = 45f;  // never start a floor below this
         public float deathCauseWindow = 3f;    // dying this soon after a hit blames the enemy
         public int extraLives = 0;             // granted by the "Segunda chispa" blessing
+
+        [Header("Character abilities (set per run by the chosen flame)")]
+        public float emberMagnetMultiplier = 1f;
+        public bool mothsIgnoreDimmed = false;
+        public bool ignoreWebs = false;
+        public bool lanternEachFloor = false;
+        public bool waterImmune = false;       // Ash Boots
+        public float lightBombRadius = 4.5f;
+        public float shadowDustTime = 5f;      // seconds of invisibility
         public float reviveFuel = 35f;
 
         [Header("Player light")]

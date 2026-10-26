@@ -11,6 +11,7 @@ namespace Lumen.Core
     public static class GameEvents
     {
         public static event Action<Vector2, float> Flare;              // position, radius
+        public static event Action<Vector2, float> Blast;              // light bomb: kills everything in radius
         public static event Action<Vector2, EnemyKind, KillCause> EnemyKilled;
         public static event Action<Vector2, float, EnemyKind> PlayerHit; // position, fuel lost, source
         public static event Action<Vector2> EmberCollected;
@@ -28,6 +29,7 @@ namespace Lumen.Core
         public static event Action<int, Vector2> ScoreGained;           // amount, world position
 
         public static void RaiseFlare(Vector2 p, float r) => Flare?.Invoke(p, r);
+        public static void RaiseBlast(Vector2 p, float r) => Blast?.Invoke(p, r);
         public static void RaiseEnemyKilled(Vector2 p, EnemyKind k, KillCause c) => EnemyKilled?.Invoke(p, k, c);
         public static void RaisePlayerHit(Vector2 p, float amount, EnemyKind k) => PlayerHit?.Invoke(p, amount, k);
         public static void RaiseEmberCollected(Vector2 p) => EmberCollected?.Invoke(p);
@@ -47,7 +49,7 @@ namespace Lumen.Core
         /// <summary>Static events survive domain reloads being disabled; clear them on boot.</summary>
         public static void ClearAll()
         {
-            Flare = null; EnemyKilled = null; PlayerHit = null; EmberCollected = null;
+            Flare = null; Blast = null; EnemyKilled = null; PlayerHit = null; EmberCollected = null;
             BrazierLit = null; BrazierExtinguished = null; ExitOpened = null;
             PlayerReachedExit = null; StalkerAlerted = null; ItemCollected = null; ItemUsed = null; PlayerRevived = null;
             FloorStarted = null; FloorCleared = null; PlayerDied = null; ScoreGained = null;

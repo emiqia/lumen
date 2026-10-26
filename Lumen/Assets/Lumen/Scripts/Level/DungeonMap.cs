@@ -13,7 +13,7 @@ namespace Lumen.Level
     /// <summary>Every three floors the dungeon changes place, with its own palette and hazard.</summary>
     public enum Biome { Crypts, Flooded, Roots }
 
-    public enum ItemKind { Lantern, Lure, Oil, Map }
+    public enum ItemKind { Lantern, Lure, Oil, Map, Key, Compass, ShadowDust, LightBomb, AshBoots }
 
     public struct ItemSpawn
     {
@@ -62,6 +62,8 @@ namespace Lumen.Level
         public readonly List<EnemySpawn> Enemies = new List<EnemySpawn>();
         public readonly List<Vector2Int> Decorations = new List<Vector2Int>();
         public readonly List<ItemSpawn> Items = new List<ItemSpawn>();
+        /// <summary>Cell of this floor's locked chest, if any.</summary>
+        public Vector2Int? Chest;
         public readonly List<DoorSpawn> Doors = new List<DoorSpawn>();
         public readonly List<WindSpawn> Wind = new List<WindSpawn>();
         /// <summary>Shallow water over floor cells (walkable; running through it costs light).</summary>

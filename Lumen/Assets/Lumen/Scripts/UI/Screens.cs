@@ -9,7 +9,7 @@ namespace Lumen.UI
     public class Screens : MonoBehaviour
     {
         RectTransform gameOver;
-        PixelText overTitle, overCause, overStats, overRecord, overRetry;
+        PixelText overTitle, overCause, overStats, overRecord, overRetry, overRewards;
         Image fade;
         float fadeTarget, fadeValue;
 
@@ -30,6 +30,7 @@ namespace Lumen.UI
             overStats = Ui.Text(gameOver, "", Ui.Center, new Vector2(0, 6), 1, PixelText.Align.Center, Palette.UiText);
             overRecord = Ui.Text(gameOver, "", Ui.Center, new Vector2(0, -34), 2, PixelText.Align.Center, Palette.FireYellow);
             overRetry = Ui.Text(gameOver, "", Ui.Center, new Vector2(0, -58), 1, PixelText.Align.Center, Palette.UiText);
+            overRewards = Ui.Text(gameOver, "", Ui.Top, new Vector2(0, -8), 1, PixelText.Align.Center, Palette.FireOrange, 380);
 
             fade = Ui.Box(root, Ui.Center, Vector2.zero, new Vector2(4000, 4000), Color.black);
             fade.rectTransform.pivot = new Vector2(0.5f, 0.5f);
@@ -37,8 +38,10 @@ namespace Lumen.UI
             HideGameOver();
         }
 
-        public void ShowGameOver(string causeKey, int score, int floor, float time, bool record, Difficulty difficulty)
+        public void ShowGameOver(string causeKey, int score, int floor, float time, bool record, Difficulty difficulty, string rewards = "")
         {
+            overRewards.Text = rewards;
+            Ui.FitHeight(overRewards);
             gameOver.gameObject.SetActive(true);
             overTitle.Text = Locale.Get("over.title");
             overCause.Text = Locale.Get(causeKey);

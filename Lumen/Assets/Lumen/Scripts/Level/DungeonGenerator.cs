@@ -60,6 +60,8 @@ namespace Lumen.Level
         const int RoomPadding = 2; // keeps walls at least 2 tiles thick between rooms
         /// <summary>Enemies never spawn closer than this many walking steps to the player.</summary>
         public const int MinEnemySteps = 16;
+        /// <summary>Embers stay away from braziers: next to one they'd be wasted (you refuel there anyway).</summary>
+        public const float MinEmberBrazierDistance = 6f;
 
         public static DungeonMap Generate(int seed, FloorSettings s)
         {
@@ -213,7 +215,8 @@ namespace Lumen.Level
                 used.Add(cell);
             }
 
-            // Embers: anywhere reachable, not right next to the start.
+            // Embers: anywhere reachable, not right next to the start, and away from braziers, so
+            // they bridge the dark stretches between fires instead of piling up where you refuel.
             var floor = new List<Vector2Int>();
             for (int x = 0; x < map.Width; x++)
                 for (int y = 0; y < map.Height; y++)
@@ -222,7 +225,7 @@ namespace Lumen.Level
             int idx = 0;
             for (int i = 0; i < s.Embers && idx < floor.Count; idx++)
             {
-                if (used.Contains(floor[idx])) continue;
+                if (used.Contains(floor[idx]) || NearAnyBrazier(map, floor[idx])) continue;
                 map.Embers.Add(floor[idx]);
                 used.Add(floor[idx]);
                 i++;
@@ -251,6 +254,13 @@ namespace Lumen.Level
                 if (map.IsWall(c.x, c.y + 1) || map.IsWall(c.x - 1, c.y) || map.IsWall(c.x + 1, c.y))
                     map.Decorations.Add(c);
             }
+        }
+
+        static bool NearAnyBrazier(DungeonMap map, Vector2Int c)
+        {
+            foreach (var b in map.Braziers)
+                if (Vector2Int.Distance(b, c) < MinEmberBrazierDistance) return true;
+            return false;
         }
 
         static void Shuffle<T>(IList<T> list, System.Random rng)

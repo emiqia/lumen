@@ -49,6 +49,20 @@ namespace Lumen.Tests
         }
 
         [Test]
+        public void Embers_AreNeverWastedNextToABrazier([ValueSource(nameof(Floors))] int floor)
+        {
+            for (int seed = 0; seed < 50; seed++)
+            {
+                var map = DungeonGenerator.Generate(seed, FloorSettings.ForFloor(floor));
+                foreach (var e in map.Embers)
+                    foreach (var b in map.Braziers)
+                        Assert.GreaterOrEqual(Vector2Int.Distance(e, b), DungeonGenerator.MinEmberBrazierDistance,
+                            $"ember next to a brazier (seed {seed})");
+                Assert.Greater(map.Embers.Count, 0, $"no embers at all (seed {seed})");
+            }
+        }
+
+        [Test]
         public void MapBorder_IsAlwaysSolid()
         {
             var map = DungeonGenerator.Generate(7, FloorSettings.ForFloor(6));

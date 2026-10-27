@@ -58,7 +58,7 @@ namespace Lumen.Tests
         {
             var baseline = ScriptableObject.CreateInstance<GameTuning>();
             var rescoldo = new RunState(Difficulty.Antorcha, baseline, Character.Get("rescoldo"));
-            Assert.AreEqual(baseline.maxFuel + 40f, rescoldo.Tuning.maxFuel);
+            Assert.AreEqual(baseline.maxFuel + 25f, rescoldo.Tuning.maxFuel);
             Assert.IsTrue(rescoldo.Tuning.lanternEachFloor);
             var fatuo = new RunState(Difficulty.Antorcha, baseline, Character.Get("fatuo"));
             Assert.IsTrue(fatuo.Tuning.mothsIgnoreDimmed && fatuo.Tuning.ignoreWebs);
@@ -138,6 +138,44 @@ namespace Lumen.Tests
             Assert.IsFalse(run.TryConsumeActive(out _));
             run.Dispose();
             UnityEngine.Object.DestroyImmediate(baseline);
+        }
+
+        [Test]
+        public void BoughtBlessings_AreOffered_ExceptOnTheDailyRun()
+        {
+            Meta.Earn(1000);
+            foreach (var u in Unlock.All)
+                if (u.Id == "echo") Assert.IsTrue(Meta.TryUnlock(u));
+
+            bool Offered(bool daily)
+            {
+                var run = new RunState(Difficulty.Antorcha, ScriptableObject.CreateInstance<GameTuning>(), null, daily);
+                for (int seed = 0; seed < 200; seed++)
+                    foreach (var b in run.OfferBlessings(seed, 3))
+                        if (b.Id == "echo") return true;
+                return false;
+            }
+            Assert.IsTrue(Offered(daily: false), "a bought blessing must show up in the regular three-card offer");
+            Assert.IsFalse(Offered(daily: true), "the daily run sticks to the base set");
+        }
+
+        [Test]
+        public void FloorEvents_NeverOnTheFirstFloor_AndDeterministic()
+        {
+            int withEvent = 0, total = 0;
+            for (int seed = 0; seed < 300; seed++)
+            {
+                Assert.AreEqual(FloorEventKind.None, FloorEvents.Pick(1, seed));
+                for (int floor = 2; floor <= 9; floor++)
+                {
+                    var e = FloorEvents.Pick(floor, seed);
+                    Assert.AreEqual(e, FloorEvents.Pick(floor, seed));
+                    total++;
+                    if (e != FloorEventKind.None) withEvent++;
+                }
+            }
+            float rate = withEvent / (float)total;
+            Assert.That(rate, Is.InRange(0.2f, 0.4f), "about 30% of floors from the second on");
         }
     }
 }

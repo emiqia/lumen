@@ -32,13 +32,12 @@ namespace Lumen.Core
     public class FloorEventDirector : MonoBehaviour
     {
         const float BlackoutEvery = 40f, BlackoutWarn = 2.5f, BlackoutLength = 12f;
-        const float RainEvery = 5f;
+        const float RainEvery = 9f; // slower than the light drains: a help, not a farm
         const float TideEvery = 35f, TideLength = 15f, TideStep = 1.2f;
 
         public FloorEventKind Kind { get; private set; }
         /// <summary>0..1 how dark the blackout currently is (PostFx and the player's light read this).</summary>
         public static float Darkness { get; private set; }
-        public static event System.Action BlackoutWarning;
 
         LevelInstance level;
         float timer;
@@ -81,7 +80,7 @@ namespace Lumen.Core
         {
             float cycle = Mathf.Repeat(timer, BlackoutEvery);
             float start = BlackoutEvery - BlackoutLength;
-            if (cycle >= start - BlackoutWarn && cycle < start - BlackoutWarn + Time.deltaTime) BlackoutWarning?.Invoke();
+            if (cycle >= start - BlackoutWarn && cycle < start - BlackoutWarn + Time.deltaTime) GameEvents.RaiseBlackoutWarning();
             float target = cycle >= start ? 1f : 0f;
             Darkness = Mathf.MoveTowards(Darkness, target, Time.deltaTime / 1.2f);
         }

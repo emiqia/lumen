@@ -33,6 +33,13 @@ namespace Lumen.Core
 
         public int CountOf(Active a) => a switch { Active.Lure => Lures, Active.ShadowDust => ShadowDust, _ => LightBombs };
 
+        /// <summary>
+        /// The blessings to offer. The daily run uses the base set so everyone plays the same seed;
+        /// other runs include the blessings bought with Cenizas.
+        /// </summary>
+        public List<Blessing> OfferBlessings(int seed, int count) =>
+            Blessing.Offer(seed, count, Blessings, Daily ? null : (System.Func<string, bool>)Meta.IsUnlocked);
+
         public RunState(Difficulty difficulty, GameTuning baseTuning, Character character = null, bool daily = false)
         {
             Difficulty = difficulty;

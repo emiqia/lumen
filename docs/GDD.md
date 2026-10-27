@@ -95,7 +95,7 @@ Los menús se navegan con flechas / D-pad y Enter / A. Brillo, temblor, modo dal
 - Hay 1 objeto por piso, hasta 3 en pisos profundos.
 
 ### Bendiciones
-Al completar un piso se ofrecen 3 (determinísticas por semilla) entre 11 iniciales y 3 desbloqueables (Eco de luz, Vínculo, Sangre de dragón). Ejemplos: Mecha larga (+20 de luz máxima), Destello barato (-25%), Sombra amiga (atenuar gasta 30% menos), Pulmones de fragua (correr gasta 35% menos) y Segunda chispa (renaces una vez, no se repite).
+Al completar un piso se ofrecen 3 (determinísticas por semilla) entre 11 iniciales y 3 desbloqueables (Eco de luz, Vínculo, Sangre de dragón). Ejemplos: Mecha larga (+20 de luz máxima), Destello barato (-5 de costo, mínimo 12), Sombra amiga (atenuar gasta 30% menos), Pulmones de fragua (correr gasta 35% menos) y Segunda chispa (renaces una vez, no se repite).
 
 ### Presión
 - Cada 40 s en un piso, la oscuridad hace nacer un Acechador nuevo lejos del jugador, **que sale ya buscando tu posición**.
@@ -108,10 +108,10 @@ Cada color de llama es un personaje con habilidad y personalidad propias. Se des
 | Llama | Precio | Personalidad | Habilidad |
 |---|---|---|---|
 | **Lumen** | — | Equilibrada: "Alguien tiene que ir primero." | Las brasas la encuentran desde el doble de distancia. |
-| **Brasa** | 300 | Impulsiva y feroz. | Destellos 30% más baratos y letales desde más lejos, pero arde 20% más rápido. |
+| **Brasa** | 300 | Impulsiva y feroz. | Destellos 15% más baratos y letales desde más lejos, pero arde 20% más rápido. |
 | **Fuego fatuo** | 500 | Tímida y antigua, maestra del sigilo. | Atenuada gasta muy poco y va más rápido; las polillas la ignoran y atraviesa telarañas. Destello débil. |
 | **Chispa** | 400 | Inquieta, ideal para speedrun. | Correr no la hace brillar más y gasta menos; 10% más veloz. Guarda menos fuego. |
-| **Rescoldo** | 700 | Lenta y terca. | +40 de fuego máximo, recarga más rápido y empieza cada piso con un farol. Más lenta. |
+| **Rescoldo** | 700 | Lenta y terca. | +25 de fuego máximo, recarga más rápido y empieza cada piso con un farol. Más lenta. |
 
 ## Progresión entre partidas (Cenizas)
 
@@ -138,7 +138,7 @@ Desde el piso 2, un 30% de los pisos trae un evento, anunciado al entrar:
 | **Mímico** | 2 | Se hace pasar por una brasa; la delata un pulso fuera de ritmo y algún tic. Se revela a 1.5 de distancia, muerde y persigue 5 s. | Desconfiar de brasas raras; tu luz plena lo revela y el destello lo mata |
 | **Tejedora** | 3 | Lenta. Teje una telaraña cada 7 s (máx. 3) que frena al 45% y drena 2/s. | El destello o una bomba de luz queman las telarañas; Fuego fatuo las atraviesa |
 | **Vigía** | 4 | Fija contra un muro. Si ve tu luz 0.8 s da la alarma: todos los acechadores a 16 casillas van hacia ti. | Atenuar al pasar frente a ella; destello |
-| **Guardián** | 5, 10, 15… | Jefe que sella la salida. 6 heridas, con 2.5 s de inmunidad tras cada una (la barra parpadea). Embiste con aviso, lanza ondas de sombra que solo dañan si no estás atenuado y, en la tercera fase, invoca acechadores. | Destello cuando la barra no parpadea; atenuar contra las ondas |
+| **Guardián** | 5, 10, 15… | Jefe que sella la salida. 4 heridas, con 2.5 s de inmunidad tras cada una (la barra parpadea). Embiste con aviso, lanza ondas de sombra que solo dañan si no estás atenuado y, en la tercera fase, invoca acechadores. | Destello cuando la barra no parpadea; atenuar contra las ondas |
 
 Los cuerpos de las sombras se dibujan con material *lit*: **solo se ven donde llega la luz**. Sus ojos son *unlit* y brillan en la oscuridad. Así ves ojos acechando en lo negro antes de ver el cuerpo.
 

@@ -11,7 +11,7 @@ namespace Lumen.Enemies
     /// <summary>
     /// Boss every five floors, waiting in the exit room; the exit stays sealed until it falls.
     /// Light can't hurt it: it takes six flares, with a short immunity after each. It fights in
-    /// three phases (every two wounds), each adding an attack, all telegraphed:
+    /// three phases (by thirds of its wounds), each adding an attack, all telegraphed:
     ///  1. Charge: a red line shows where it will dash.
     ///  2. Shadow wave: its eyes flare, then a ring expands; it only hurts you if you are NOT dimmed.
     ///  3. Summon: it calls two stalkers out of the dark.
@@ -27,14 +27,14 @@ namespace Lumen.Enemies
         public int Wounds => wounds.Wounds;
         public int MaxWounds => Tuning.guardianWounds;
         public bool Vulnerable => wounds.CanWound(Time.time);
-        public int Phase => 1 + Mathf.Min(2, Wounds / 2);
+        public int Phase => 1 + Mathf.Min(2, Wounds * 3 / Mathf.Max(1, MaxWounds)); // thirds of its health
         public bool IsAwake { get; private set; }
 
         WoundGate wounds;
         Attack attack;
         float attackTimer, nextAttack = 2.5f;
         Vector2 chargeDir;
-        SpriteRenderer telegraph;
+        SpriteRenderer telegraph, aura;
         float waveRadius = -1f;
         Vector2 waveOrigin;
         bool waveHit;
@@ -53,6 +53,16 @@ namespace Lumen.Enemies
             line.sortingOrder = 31000;
             line.enabled = false;
             g.telegraph = line;
+            // A faint violet aura so the boss reads as a silhouette even outside your light.
+            var aura = new GameObject("Aura").AddComponent<SpriteRenderer>();
+            aura.transform.SetParent(g.transform, false);
+            aura.transform.localPosition = new Vector3(0f, 1.2f, 0f);
+            aura.transform.localScale = new Vector3(3.2f, 3.6f, 1f);
+            aura.sprite = SpriteBank.SoftCircle;
+            aura.sharedMaterial = LumenAssets.I.Unlit;
+            aura.color = new Color(0.55f, 0.3f, 0.85f, 0.22f);
+            aura.sortingOrder = -1;
+            g.aura = aura;
             return g;
         }
 
@@ -64,6 +74,7 @@ namespace Lumen.Enemies
 
         protected override void Think(float dt)
         {
+            if (aura != null) aura.color = new Color(0.55f, 0.3f, 0.85f, IsAwake ? 0.3f + 0.08f * Mathf.Sin(Time.time * 3f) : 0.18f);
             Vector2 pos = transform.position;
             if (Player == null || !Player.IsAlive) { desiredVelocity = Vector2.zero; return; }
             Vector2 pp = Player.transform.position;

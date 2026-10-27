@@ -81,7 +81,7 @@ namespace Lumen.Core
             new Challenge("ghost", 120, r => r.unseenFloors >= 1),
             new Challenge("swift", 150, r => r.floorReached >= 4 && r.secondsAtFloor4 > 0 && r.secondsAtFloor4 <= 240f),
             new Challenge("deep", 250, r => r.floorReached >= 7),
-            new Challenge("pyro", 120, r => r.killsByLight >= 10),
+            new Challenge("pyro", 120, r => r.killsByLight >= 6),
             new Challenge("guardian", 300, r => r.guardiansKilled >= 1),
             new Challenge("ash", 400, r => r.difficulty == nameof(Difficulty.Ceniza) && r.floorReached >= 4),
         };

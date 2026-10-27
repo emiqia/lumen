@@ -47,9 +47,9 @@ namespace Lumen.Level
                 Embers = Mathf.Max(13 - floor, 6),
                 Stalkers = Mathf.Min(2 + floor * 2 / 3, 14),
                 Moths = floor >= 2 ? Mathf.Min(floor / 2, 8) : 0,
-                Devourers = floor >= 3 ? 1 + (floor - 3) / 4 : 0,
+                Devourers = floor >= 3 && floor % 5 != 0 ? 1 + (floor - 3) / 4 : 0, // the Guardian floor is its own fight
                 Mimics = floor >= 2 ? Mathf.Min(1 + (floor - 2) / 2, 4) : 0,
-                Weavers = floor >= 3 ? Mathf.Min(1 + (floor - 3) / 3 + (BiomeFor(floor) == Biome.Roots ? 1 : 0), 4) : 0,
+                Weavers = floor >= 4 ? Mathf.Min(1 + (floor - 4) / 3 + (BiomeFor(floor) == Biome.Roots ? 1 : 0), 4) : 0,
                 Watchers = floor >= 4 ? Mathf.Min(1 + (floor - 4) / 3, 3) : 0,
                 Guardian = floor % 5 == 0,
                 EnemySpeedMultiplier = Mathf.Min(1f + 0.03f * Mathf.Max(0, floor - 8), 1.3f),

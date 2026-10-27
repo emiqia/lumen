@@ -19,7 +19,7 @@ MonoBehaviour:
   drainBright: 1.5
   drainDim: 0.6
   emberFuel: 12
-  hitInvulnerability: 1.1
+  hitInvulnerability: 1.5
   lowFuelWarning: 25
   floorCarryBonus: 15
   floorCarryMinimum: 45

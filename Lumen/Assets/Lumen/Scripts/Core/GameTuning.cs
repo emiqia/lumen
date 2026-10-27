@@ -25,7 +25,7 @@ namespace Lumen.Core
         public float drainBright = 1.5f;
         public float drainDim = 0.6f;
         public float emberFuel = 12f;
-        public float hitInvulnerability = 1.1f;
+        public float hitInvulnerability = 1.5f;
         public float lowFuelWarning = 25f;
         public float floorCarryBonus = 15f;    // fuel added when entering the next floor
         public float floorCarryMinimum = 45f;  // never start a floor below this
@@ -113,7 +113,7 @@ namespace Lumen.Core
         public float watcherAlarmRadius = 16f;
         public float guardianDamage = 25f;
         public float guardianWaveDamage = 18f;
-        public int guardianWounds = 6;
+        public int guardianWounds = 4;
         public int guardianCenizas = 150;
 
         [Header("Pressure")]

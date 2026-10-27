@@ -37,7 +37,8 @@ namespace Lumen.Core
 
         void OnEmber(Vector2 p) => Add(tuning.scoreEmber, p);
         void OnBrazier(Vector2 p) => Add(tuning.scoreBrazier, p);
-        void OnKill(Vector2 p, EnemyKind kind, KillCause _) => Add(ValueOf(kind), p);
+        // The boss is a fight, not a sneak: its bounty ignores the stealth bonus.
+        void OnKill(Vector2 p, EnemyKind kind, KillCause _) => Add(ValueOf(kind), p, kind != EnemyKind.Guardian);
 
         public int ValueOf(EnemyKind kind) => kind switch
         {
@@ -57,10 +58,10 @@ namespace Lumen.Core
             return tuning.scoreFloorBase * floor + Mathf.Max(0, Mathf.RoundToInt(underPar * tuning.scorePerSecondUnderPar));
         }
 
-        public void Add(int amount, Vector2 worldPos)
+        public void Add(int amount, Vector2 worldPos, bool stealthBonus = true)
         {
             if (!Counting || amount <= 0) return;
-            amount = Mathf.RoundToInt(amount * Multiplier);
+            if (stealthBonus) amount = Mathf.RoundToInt(amount * Multiplier);
             Score += amount;
             GameEvents.RaiseScoreGained(amount, worldPos);
         }

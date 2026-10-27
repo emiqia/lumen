@@ -135,8 +135,8 @@ namespace Lumen.Core
             GameEvents.StalkerAlerted += _ => { if (Current == State.Playing) { seenThisFloor = true; BreakStealth(); } };
             GameEvents.WatcherAlarm += _ => BreakStealth();
             GameEvents.PlayerHit += (_, __, ___) => BreakStealth();
-            FloorEventDirector.BlackoutWarning += () => { if (Current == State.Playing) hud.Announce(Locale.Get("event.Blackout.warn"), "", 2f, Palette.UiDanger); };
-            GameEvents.GuardianAwoke += _ => { if (Current == State.Playing) hud.Announce(Locale.Get("boss.awake"), Locale.Get("boss.awake.sub"), 2.6f, Palette.UiDanger); };
+            GameEvents.BlackoutWarning += () => { if (Current == State.Playing) hud.Announce(Locale.Get("event.Blackout.warn"), "", 2f, Palette.UiDanger); };
+            GameEvents.GuardianAwoke += _ => { BreakStealth(); if (Current == State.Playing) hud.Announce(Locale.Get("boss.awake"), Locale.Get("boss.awake.sub"), 2.6f, Palette.UiDanger); };
             GameEvents.EnemyKilled += (_, kind, __) => { if (kind == EnemyKind.Guardian) OnGuardianDefeated(); };
         }
 
@@ -147,6 +147,15 @@ namespace Lumen.Core
             Sfx.I?.ApplyVolumes();
             if (!Application.isBatchMode && !Application.isEditor)
                 Screen.fullScreenMode = SaveData.Windowed ? FullScreenMode.Windowed : FullScreenMode.FullScreenWindow;
+        }
+
+        /// <summary>The floor event gets its own banner right after the floor's title card.</summary>
+        System.Collections.IEnumerator AnnounceFloorEvent(int forFloor, FloorEventKind kind)
+        {
+            yield return new WaitForSeconds(3.4f);
+            if (Current != State.Playing || Floor != forFloor) yield break;
+            string desc = Locale.Get(FloorEvents.DescKey(kind));
+            hud.Announce(Locale.Get(FloorEvents.NameKey(kind)), char.ToUpper(desc[0]) + desc.Substring(1), 3f, Palette.UiDanger);
         }
 
         void OnDestroy()
@@ -224,7 +233,7 @@ namespace Lumen.Core
             if (provisions != null) foreach (var p in provisions) p.Apply(run);
             if (run.StartWithBlessing)
             {
-                var first = Blessing.Offer(runSeed, 1, run.Blessings, Meta.IsUnlocked);
+                var first = run.OfferBlessings(runSeed, 1);
                 if (first.Count > 0) run.Take(first[0]);
             }
             cenizasBonus = 0;
@@ -268,8 +277,7 @@ namespace Lumen.Core
             hud.ClearTransient();
             hud.Announce(FloorNames.Title(floor, seed), Locale.Get("floor.enter") + " " + floor + "  -  " + FloorNames.Subtitle(floor), 3.2f);
             tutorial.BeginFloor();
-            if (floorEvent != FloorEventKind.None)
-                hud.Hint(Locale.Get(FloorEvents.NameKey(floorEvent)) + ": " + Locale.Get(FloorEvents.DescKey(floorEvent)), 5f);
+            if (floorEvent != FloorEventKind.None) StartCoroutine(AnnounceFloorEvent(floor, floorEvent));
             GameEvents.RaiseFloorStarted(floor);
             Telemetry.BeginFloor(floor);
 
@@ -340,7 +348,7 @@ namespace Lumen.Core
             if (Current != State.Playing || run == null) return;
             cenizasBonus += run.Tuning.guardianCenizas;
             if (Telemetry.Current != null) Telemetry.Current.guardiansKilled++;
-            var gift = Blessing.Offer(runSeed * 17 + Floor, 1, run.Blessings, Meta.IsUnlocked);
+            var gift = run.OfferBlessings(runSeed * 17 + Floor, 1);
             string sub = "+" + run.Tuning.guardianCenizas + " " + Locale.Get("meta.cenizas");
             if (gift.Count > 0)
             {
@@ -362,7 +370,7 @@ namespace Lumen.Core
                 if (Meta.IsUnlocked(k.ToString())) rewards.Add(k);
             var reward = rewards[Random.Range(0, rewards.Count)];
             if (!TryCollect(reward)) run.Oil = Mathf.Min(run.Oil + 1, RunState.MaxOil);
-            int cenizas = Random.Range(20, 41);
+            int cenizas = Random.Range(50, 81);
             cenizasBonus += cenizas;
             if (Telemetry.Current != null) Telemetry.Current.chestsOpened++;
             hud.Announce("", Locale.Get("item." + reward) + "   +" + cenizas + " " + Locale.Get("meta.cenizas"), 2.2f);
@@ -454,14 +462,14 @@ namespace Lumen.Core
         {
             if (Current == State.Title) { EnterTitle(); return; } // attract-mode bot finished: new demo floor
             if (Current != State.Playing) return;
-            score.Add(score.FloorBonus(Floor, FloorTime), player.transform.position);
+            score.Add(score.FloorBonus(Floor, FloorTime), player.transform.position, stealthBonus: false);
             Telemetry.EndFloor(FloorTime, player.Fuel);
             if (!seenThisFloor && Telemetry.Current != null) Telemetry.Current.unseenFloors++;
             GameEvents.RaiseFloorCleared(Floor);
             player.Controllable = false;
 
             // Choose a blessing before going down. Headless playtests take the first offer.
-            var offer = Blessing.Offer(runSeed * 31 + Floor, 3, run.Blessings);
+            var offer = run.OfferBlessings(runSeed * 31 + Floor, 3);
             if (Headless || offer.Count == 0)
             {
                 if (offer.Count > 0) { run.Take(offer[0]); Telemetry.OnBlessing(offer[0].Id); }

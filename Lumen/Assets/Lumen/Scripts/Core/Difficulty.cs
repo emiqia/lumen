@@ -42,6 +42,10 @@ namespace Lumen.Core
             t.devourerSpeed *= EnemySpeed;
             t.stalkerDamage *= Damage;
             t.mothDamage *= Damage;
+            t.mimicDamage *= Damage;
+            t.weaverDamage *= Damage;
+            t.guardianDamage *= Damage;
+            t.guardianWaveDamage *= Damage;
             t.devourerDamage = DevourerKillsInOneHit ? 9999f : t.devourerDamage * Damage;
             t.brazierReserve *= BrazierReserve;
             t.stalkerSightBase *= Sight;

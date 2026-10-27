@@ -265,8 +265,8 @@ namespace Lumen.Tests
         {
             Assert.AreEqual(0, FloorSettings.ForFloor(1).Mimics);
             Assert.Greater(FloorSettings.ForFloor(2).Mimics, 0);
-            Assert.AreEqual(0, FloorSettings.ForFloor(2).Weavers);
-            Assert.Greater(FloorSettings.ForFloor(3).Weavers, 0);
+            Assert.AreEqual(0, FloorSettings.ForFloor(3).Weavers);
+            Assert.Greater(FloorSettings.ForFloor(4).Weavers, 0);
             Assert.AreEqual(0, FloorSettings.ForFloor(3).Watchers);
             Assert.Greater(FloorSettings.ForFloor(4).Watchers, 0);
         }

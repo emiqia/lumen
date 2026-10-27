@@ -30,7 +30,7 @@ namespace Lumen.Core
         public static readonly IReadOnlyList<Blessing> All = new[]
         {
             new Blessing("wick", true, t => t.maxFuel += 20f),                          // Mecha larga
-            new Blessing("cheapflare", true, t => t.flareCost *= 0.75f),                // Destello barato
+            new Blessing("cheapflare", true, t => t.flareCost = UnityEngine.Mathf.Max(12f, t.flareCost - 5f)),       // Destello barato
             new Blessing("quickflare", true, t => t.flareCooldown *= 0.7f),             // Chispa rápida
             new Blessing("embers", true, t => t.emberFuel *= 1.5f),                     // Brasas generosas
             new Blessing("swift", true, t => { t.moveSpeed *= 1.12f; t.dimMoveSpeed *= 1.12f; }), // Paso ligero

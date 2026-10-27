@@ -39,17 +39,17 @@ namespace Lumen.Core
                 t => t.emberMagnetMultiplier = 2f),
             // Aggressive: cheaper, deadlier flares; burns hotter.
             new Character("brasa", 300, 0xffe0c0, 0xff7a4a, 0xe83a1c, 0x9d0208, new Color(1f, 0.45f, 0.3f),
-                t => { t.flareCost *= 0.7f; t.flareKillRadius += 0.6f; t.drainBright *= 1.2f; }),
+                t => { t.flareCost *= 0.85f; t.flareKillRadius += 0.6f; t.drainBright *= 1.2f; }),
             // Stealth: dims cheaply and quickly; moths ignore her while dimmed; walks through webs. Weak flare.
             new Character("fatuo", 500, 0xe8fbff, 0x9fe8ff, 0x4fb4e8, 0x2a5fdb, new Color(0.5f, 0.8f, 1f),
-                t => { t.drainDim *= 0.6f; t.dimMoveSpeed *= 1.15f; t.flareRadius *= 0.8f; t.flareKillRadius *= 0.8f;
+                t => { t.drainDim *= 0.6f; t.dimMoveSpeed *= 1.15f; t.flareRadius *= 0.85f;
                        t.mothsIgnoreDimmed = true; t.ignoreWebs = true; }),
             // Speed: running doesn't make her brighter and burns less; smaller tank.
             new Character("chispa", 400, 0xffffff, 0xfff4b0, 0xffe066, 0xf2b630, new Color(1f, 0.95f, 0.7f),
-                t => { t.sprintLightBoost = 1f; t.sprintDrainMultiplier *= 0.6f; t.moveSpeed *= 1.1f; t.maxFuel -= 25f; }),
+                t => { t.sprintLightBoost = 1f; t.sprintDrainMultiplier *= 0.6f; t.moveSpeed *= 1.1f; t.maxFuel -= 15f; }),
             // Tank: big reserve and a fresh lantern every floor; slow.
             new Character("rescoldo", 700, 0xf4e0ff, 0xc89aff, 0x8a5cd8, 0x4a2a8a, new Color(0.75f, 0.55f, 1f),
-                t => { t.maxFuel += 40f; t.brazierRefuelPerSecond *= 1.25f; t.moveSpeed *= 0.9f; t.dimMoveSpeed *= 0.9f;
+                t => { t.maxFuel += 25f; t.brazierRefuelPerSecond *= 1.25f; t.moveSpeed *= 0.9f; t.dimMoveSpeed *= 0.9f;
                        t.lanternEachFloor = true; }),
         };
 

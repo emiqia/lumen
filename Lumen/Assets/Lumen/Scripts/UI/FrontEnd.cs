@@ -151,7 +151,8 @@ namespace Lumen.UI
             {
                 var item = p;
                 pItems.Add(new MenuItem(() => (basket.Contains(item) ? "[X] " : "[ ] ") + Locale.Get(item.NameKey) + "   " + item.Price,
-                    () => ToggleProvision(item)));
+                    () => ToggleProvision(item))
+                { Muted = () => !basket.Contains(item) && BasketTotal() + item.Price > Meta.Cenizas });
             }
             pItems.Add(new MenuItem(() => Locale.Get("prov.start"), BeginRun));
             pItems.Add(new MenuItem(() => Locale.Get("menu.back"), () => { basket.Clear(); SetMode(Mode.Characters); }));
@@ -165,7 +166,8 @@ namespace Lumen.UI
             {
                 var unlock = u;
                 uItems.Add(new MenuItem(() => Locale.Get(unlock.NameKey) + "   " + (Meta.IsUnlocked(unlock.Id) ? Locale.Get("unlock.owned") : unlock.Price.ToString()),
-                    () => Buy(unlock)));
+                    () => Buy(unlock))
+                { Muted = () => !Meta.IsUnlocked(unlock.Id) && unlock.Price > Meta.Cenizas });
             }
             uItems.Add(new MenuItem(() => Locale.Get("menu.back"), () => SetMode(Mode.Title)));
             Menu(Mode.Unlocks, new Vector2(0, 66), uItems, rowHeight: 11).SelectionChanged += _ => RefreshInfo();
@@ -352,7 +354,10 @@ namespace Lumen.UI
             provisionsTotal.Text = pdesc + Locale.Get("prov.total") + " " + BasketTotal() + " / " + Meta.Cenizas + " " + Locale.Get("meta.cenizas");
 
             int ui = menus[Mode.Unlocks].Selected;
-            unlockDesc.Text = ui < Unlock.All.Count ? Ui.Wrap(Locale.Get(Unlock.All[ui].DescKey), 56) : "";
+            // For a flame, what it does matters more than its personality when deciding to buy it.
+            unlockDesc.Text = ui < Unlock.All.Count
+                ? Ui.Wrap(Locale.Get(Unlock.All[ui].Type == Unlock.Kind.Character ? "char." + Unlock.All[ui].Id + ".ability" : Unlock.All[ui].DescKey), 56)
+                : "";
 
             int chi = menus[Mode.Challenges].Selected;
             challengeDesc.Text = chi < Challenge.All.Count ? Ui.Wrap(Locale.Get(Challenge.All[chi].DescKey), 56) : "";

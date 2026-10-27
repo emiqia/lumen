@@ -27,7 +27,7 @@ namespace Lumen.UI
         PixelText title, hint;
         readonly List<RectTransform> cards = new List<RectTransform>();
         readonly List<CanvasGroup> cardGroups = new List<CanvasGroup>();
-        readonly List<Image> frames = new List<Image>(), glows = new List<Image>();
+        readonly List<Image> frames = new List<Image>(), glows = new List<Image>(), icons = new List<Image>(), backs = new List<Image>();
         readonly List<PixelText> names = new List<PixelText>(), descs = new List<PixelText>();
         List<Blessing> offer;
         int selected;
@@ -70,9 +70,19 @@ namespace Lumen.UI
                 var face = Ui.Box(border.rectTransform, Ui.Center, Vector2.zero, new Vector2(CardW - 12, CardH - 12), new Color32(0x1c, 0x15, 0x24, 255));
                 face.rectTransform.pivot = new Vector2(0.5f, 0.5f);
 
-                Ui.Text(face.rectTransform, "*", Ui.Top, new Vector2(0, -6), 2, PixelText.Align.Center, Palette.FireOrange, CardW);
+                var icon = Ui.Sprite(face.rectTransform, Icon("wick"), Ui.Top, new Vector2(0, -14), 2);
+                icons.Add(icon);
                 names.Add(Ui.Text(face.rectTransform, "", Ui.Top, new Vector2(0, -28), 1, PixelText.Align.Center, Palette.UiText, CardW - 12));
                 descs.Add(Ui.Text(face.rectTransform, "", Ui.Top, new Vector2(0, -50), 1, PixelText.Align.Center, Palette.UiDim, CardW - 12));
+                // Dealt face-down: the back covers the face until the flip passes its midpoint.
+                var back = Ui.Box(frame.rectTransform, Ui.Center, Vector2.zero, new Vector2(CardW - 4, CardH - 4), new Color32(0x2a, 0x1a, 0x30, 255));
+                back.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                var backBorder = Ui.Box(back.rectTransform, Ui.Center, Vector2.zero, new Vector2(CardW - 14, CardH - 14), new Color32(0x4a, 0x30, 0x4e, 255));
+                backBorder.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                var backInner = Ui.Box(backBorder.rectTransform, Ui.Center, Vector2.zero, new Vector2(CardW - 16, CardH - 16), new Color32(0x2a, 0x1a, 0x30, 255));
+                backInner.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                Ui.Text(backInner.rectTransform, "#", Ui.Center, new Vector2(0, 0), 3, PixelText.Align.Center, Palette.FireOrange, 40);
+                backs.Add(back);
                 cards.Add(card);
                 frames.Add(frame);
                 glows.Add(glow);
@@ -93,6 +103,7 @@ namespace Lumen.UI
                 bool has = i < offer.Count;
                 cards[i].gameObject.SetActive(has);
                 if (!has) continue;
+                icons[i].sprite = Icon(offer[i].Id);
                 names[i].Text = Ui.Wrap(Locale.Get(offer[i].NameKey), 16);
                 descs[i].Text = Ui.Wrap(Locale.Get(offer[i].DescKey), 16);
                 Ui.FitHeight(names[i]);
@@ -154,7 +165,10 @@ namespace Lumen.UI
                 float k = EaseOut(Mathf.Clamp01((t - 0.12f - i * DealStagger) / DealTime));
                 float lift = on && outT < 0f ? 4f + Mathf.Sin(t * 4f) * 1f : 0f;
                 float y = Mathf.Lerp(-36f, 0f, k) + lift;
-                float scaleX = k;                   // dealt face-down: the card flips open
+                // Dealt face-down: the back narrows to nothing, then the face opens out.
+                float scaleX = Mathf.Abs(1f - 2f * k);
+                backs[i].enabled = k < 0.5f;
+                backs[i].transform.GetChild(0).gameObject.SetActive(k < 0.5f);
                 float scale = 1f;
                 float alpha = k;
 
@@ -172,6 +186,42 @@ namespace Lumen.UI
                 names[i].color = on ? Palette.FireYellow : Palette.UiText;
                 glows[i].color = new Color(1f, 0.7f, 0.3f, on ? 0.35f + 0.1f * Mathf.Sin(t * 5f) : 0f);
             }
+        }
+
+        // ---- icons: one shape per kind of blessing, so a hand of three reads at a glance.
+        static readonly Dictionary<string, Sprite> iconCache = new Dictionary<string, Sprite>();
+
+        static readonly string[] Star = { "....#....", ".#..#..#.", "..#.#.#..", "...###...", "#########", "...###...", "..#.#.#..", ".#..#..#.", "....#...." };
+        static readonly string[] Drop = { "....#....", "....#....", "...###...", "...###...", "..#####..", ".#######.", ".###.###.", "..#...#..", "...###..." };
+        static readonly string[] Bowl = { "..#.#.#..", "...#.#...", ".........", "#########", ".#######.", "..#####..", "...###...", "..#...#..", ".#.....#." };
+        static readonly string[] Sun = { "#...#...#", ".#.....#.", "...###...", "..#####..", "#.#####.#", "..#####..", "...###...", ".#.....#.", "#...#...#" };
+        static readonly string[] Moon = { "...####..", "..##.....", ".##......", ".##......", ".##......", ".##......", ".##......", "..##.....", "...####.." };
+        static readonly string[] Wing = { ".........", "#...#....", ".#...#...", "..#...#..", "...#...#.", "..#...#..", ".#...#...", "#...#....", "........." };
+        static readonly string[] Heart = { ".........", ".##...##.", "####.####", "#########", "#########", ".#######.", "..#####..", "...###...", "....#...." };
+
+        static Sprite Icon(string id)
+        {
+            if (iconCache.TryGetValue(id, out var cached)) return cached;
+            var (rows, color) = id switch
+            {
+                "cheapflare" or "quickflare" or "echo" => (Star, (Color32)Palette.FireWhite),
+                "fierce" or "dragon" => (Sun, (Color32)Palette.FireOrange),
+                "hearth" or "bond" => (Bowl, (Color32)Palette.FireOrange),
+                "shadow" or "owl" => (Moon, (Color32)Palette.Stealth),
+                "swift" or "runner" => (Wing, new Color32(0xe8, 0xe0, 0xd0, 255)),
+                "phoenix" => (Heart, new Color32(0xe8, 0x3a, 0x3a, 255)),
+                _ => (Drop, (Color32)Palette.FireYellow),
+            };
+            var tex = new Texture2D(9, 9, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
+            var px = new Color32[81];
+            for (int r = 0; r < 9; r++)
+                for (int c = 0; c < 9; c++)
+                    px[(8 - r) * 9 + c] = rows[r][c] == '#' ? color : new Color32(0, 0, 0, 0);
+            tex.SetPixels32(px);
+            tex.Apply(false, true);
+            var sprite = Sprite.Create(tex, new Rect(0, 0, 9, 9), new Vector2(0.5f, 0.5f), 1f);
+            iconCache[id] = sprite;
+            return sprite;
         }
     }
 }

@@ -11,6 +11,7 @@ namespace Lumen.UI
         public Func<string> Label;
         public Action OnConfirm;
         public Action<int> OnChange; // -1 left / +1 right, for value rows (volume, toggles...)
+        public Func<bool> Muted;     // drawn darker, e.g. something you can't afford yet
 
         public MenuItem(Func<string> label, Action onConfirm = null, Action<int> onChange = null)
         {
@@ -81,7 +82,9 @@ namespace Lumen.UI
                 bool on = i == selected;
                 string label = items[i].Label();
                 rows[i].Text = on ? "> " + label + " <" : label;
-                rows[i].color = on ? Palette.FireYellow : Palette.UiDim;
+                bool muted = items[i].Muted != null && items[i].Muted();
+                Color c = on ? (Color)Palette.FireYellow : Palette.UiDim;
+                rows[i].color = muted ? new Color(c.r * 0.55f, c.g * 0.55f, c.b * 0.55f, c.a) : c;
             }
         }
     }

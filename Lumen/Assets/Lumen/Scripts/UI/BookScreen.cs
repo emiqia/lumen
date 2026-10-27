@@ -30,6 +30,7 @@ namespace Lumen.UI
         CanvasGroup group;
         Image flipper;
         PixelText title, dropCap, body, pageNumber, hint;
+        RectTransform titleRule, frameRect;
         int page;
         bool startMode, closing, closeResult;
         float openT, flipT = -1f;
@@ -72,8 +73,9 @@ namespace Lumen.UI
 
             // Left page: title, an ornamental rule, a framed illustration.
             title = InkText(leftPage, Ui.Top, new Vector2(0, -12), 2, PixelText.Align.Center, Ink, BookArt.PageW);
-            Rule(leftPage, new Vector2(0, -34));
+            titleRule = Rule(leftPage, new Vector2(0, -34));
             var frame = Ui.Box(leftPage, Ui.Center, new Vector2(0, -14), new Vector2(124, 100), InkFaded);
+            frameRect = frame.rectTransform;
             frame.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             var inner = Ui.Box(frame.rectTransform, Ui.Center, Vector2.zero, new Vector2(122, 98), new Color32(0xdc, 0xca, 0x9c, 255));
             inner.rectTransform.pivot = new Vector2(0.5f, 0.5f);
@@ -95,13 +97,14 @@ namespace Lumen.UI
         }
 
         /// <summary>A short ink rule with a diamond in the middle.</summary>
-        static void Rule(RectTransform parent, Vector2 pos)
+        static RectTransform Rule(RectTransform parent, Vector2 pos)
         {
             var line = Ui.Box(parent, Ui.Top, pos, new Vector2(90, 1), InkFaded);
             line.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             var diamond = Ui.Box(line.rectTransform, Ui.Center, Vector2.zero, new Vector2(3, 3), InkRed);
             diamond.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             diamond.rectTransform.localRotation = Quaternion.Euler(0, 0, 45);
+            return line.rectTransform;
         }
 
         /// <param name="beforeRun">True when opened before the first run: the last page says "begin".</param>
@@ -213,8 +216,13 @@ namespace Lumen.UI
         {
             int n = page + 1;
             title.Text = Locale.Get("book." + n + ".title");
-            // Long titles drop to scale 1 so they never spill off the page.
-            title.Scale = PixelFont.Measure(title.Text) * 2 > BookArt.PageW - 16 ? 1 : 2;
+            // Every title is set at the same size; long ones break onto a second line and the
+            // rule and illustration step down to make room.
+            title.Text = Ui.Wrap(title.Text, (BookArt.PageW - 16) / 12);
+            Ui.FitHeight(title);
+            float drop = (title.Text.Split('\n').Length - 1) * 20f;
+            titleRule.anchoredPosition = new Vector2(0, -34 - drop);
+            frameRect.anchoredPosition = new Vector2(0, -14 - drop * 0.6f);
             BuildIllustration(n);
         }
 

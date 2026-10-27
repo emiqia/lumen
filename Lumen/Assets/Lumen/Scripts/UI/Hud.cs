@@ -25,6 +25,7 @@ namespace Lumen.UI
         Camera cam;
         Canvas canvas;
         Image fuelFill, fuelBack, flareFill, hintBand, fuelPanel;
+        CanvasGroup fade; // the HUD steps back while the blessing cards are on screen
         const float PanelShort = 18f, PanelTall = 32f; // the panel only grows when there is a state label to cover
         readonly List<Image> arrows = new List<Image>();     // pooled objective markers
         readonly List<Transform> arrowTargets = new List<Transform>();
@@ -64,6 +65,7 @@ namespace Lumen.UI
 
         void Build()
         {
+            fade = root.gameObject.AddComponent<CanvasGroup>();
             popupLayer = Ui.Stretch(root, "Popups");
 
             // Fuel gauge (top-left): flame icon, bar with quarter ticks, state label underneath.
@@ -186,6 +188,8 @@ namespace Lumen.UI
             float dt = Time.unscaledDeltaTime;
 
             if (player != null) UpdateGauges(player);
+            float hudAlpha = gm.Current == GameManager.State.ChoosingBlessing ? 0f : 1f;
+            fade.alpha = Mathf.MoveTowards(fade.alpha, hudAlpha, dt * 4f);
 
             // Score: counts up, pops briefly when it changes.
             if (gm.Score != shownScore) { if (shownScore >= 0) scorePop = 0.15f; shownScore = gm.Score; }

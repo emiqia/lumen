@@ -84,7 +84,7 @@ namespace Lumen.Core
         public float devourerDamage = 22f;
         public int devourerFlaresToKill = 3;
         public float devourerStunTime = 2f;
-        public float devourerWoundImmunity = 3f;   // after the stun wears off it shrugs off flares for this long...
+        public float devourerWoundImmunity = 2f;   // after the stun wears off it shrugs off flares for this long...
         public float devourerEnragedSpeed = 1.6f;  // ...and charges at this multiplier (still slower than you)
         public float devourerExtinguishTime = 2.5f;
 

@@ -68,8 +68,8 @@ namespace Lumen.Core
             ["book.8.body"] = ("Farol: detiene un golpe.\nAceite: tu próximo destello no cuesta fuego.\nSeñuelo (E): lánzalo y las sombras irán tras él.\nMapa: revela todos los braseros del nivel.", "Lantern: stops one hit.\nOil: your next flare costs no fire.\nLure (E): throw it and the shades will chase it.\nMap: reveals every brazier on the level."),
             ["book.9.title"] = ("LUGARES", "PLACES"),
             ["book.9.body"] = ("Criptas: rejas que se abren y se cierran. Cruza cuando estén arriba.\nCavernas: correr por el agua ahoga tu llama.\nRaíces: ráfagas de viento que te debilitan y te arrastran.", "Crypts: gates that open and slam shut. Cross while they are up.\nCaverns: running through water drowns your flame.\nRoots: gusts of wind that weaken you and drag you along."),
-            ["book.10.title"] = ("BENDICIONES", "BLESSINGS"),
-            ["book.10.body"] = ("Cada vez que desciendas podrás elegir una bendición entre tres. Se acumulan durante toda la partida, así que ninguna travesía será igual a otra.\nBaja tan hondo como puedas.", "Every time you descend you may choose one blessing out of three. They stack for the whole run, so no journey is like another.\nGo as deep as you can."),
+            ["book.12.title"] = ("BENDICIONES", "BLESSINGS"),
+            ["book.12.body"] = ("Cada vez que desciendas podrás elegir una bendición entre tres. Se acumulan durante toda la partida, así que ninguna travesía será igual a otra.\nBaja tan hondo como puedas.", "Every time you descend you may choose one blessing out of three. They stack for the whole run, so no journey is like another.\nGo as deep as you can."),
 
             // ---- blessings
             ["blessing.title"] = ("ELIGE UNA BENDICIÓN", "CHOOSE A BLESSING"),
@@ -233,6 +233,33 @@ namespace Lumen.Core
             ["chal.guardian.desc"] = ("Derrota a un Guardián.", "Defeat a Guardian."),
             ["chal.ash"] = ("Entre cenizas", "Among ashes"),
             ["chal.ash.desc"] = ("Llega al piso 4 en dificultad Ceniza.", "Reach floor 4 on Ash difficulty."),
+
+            // ---- new shades
+            ["tut.watcher"] = ("Vigía: si ve tu luz, llama a los acechadores. Atenúate o destéllalo", "Watcher: if it sees your light, it calls the stalkers. Dim or flare it"),
+            ["tut.web"] = ("Una telaraña te frena y te apaga. Un destello la quema", "A web slows and smothers you. A flare burns it away"),
+            ["tut.mimic"] = ("¡Esa brasa era un Mímico! Las de verdad flotan con calma", "That ember was a Mimic! Real ones float calmly"),
+            ["tut.guardian"] = ("Guardián: seis destellos. Ante su ola de sombra, atenúate", "Guardian: six flares. Dim yourself when its shadow wave comes"),
+            ["boss.awake"] = ("EL GUARDIÁN DESPIERTA", "THE GUARDIAN AWAKENS"),
+            ["boss.awake.sub"] = ("La salida no se abrirá mientras siga en pie", "The exit won't open while it stands"),
+            ["boss.defeated"] = ("¡GUARDIÁN DERROTADO!", "GUARDIAN DEFEATED!"),
+            ["boss.name"] = ("GUARDIÁN", "GUARDIAN"),
+            ["cause.Mimic"] = ("Un Mímico te mordió", "A Mimic bit you"),
+            ["cause.Weaver"] = ("Una Tejedora te atrapó", "A Weaver caught you"),
+            ["cause.Guardian"] = ("El Guardián te aplastó", "The Guardian crushed you"),
+            ["book.10.title"] = ("MÍMICO Y TEJEDORA", "MIMIC AND WEAVER"),
+            ["book.10.body"] = ("No toda brasa es amiga: el Mímico flota a destiempo y muerde al que se acerca. Tu luz plena lo delata.\nLa Tejedora llena los pasillos de telarañas que te frenan y te apagan. Un destello las quema.", "Not every ember is a friend: the Mimic floats out of rhythm and bites whoever comes close. Full light gives it away.\nThe Weaver fills corridors with webs that slow and smother you. A flare burns them."),
+            ["book.11.title"] = ("VIGÍA Y GUARDIÁN", "WATCHER AND GUARDIAN"),
+            ["book.11.body"] = ("El Vigía no se mueve, pero si ve tu luz despierta a todos los acechadores.\nCada cinco pisos, un Guardián custodia la salida. Necesita seis destellos; contra su ola de sombra, atenúate y pasará de largo.", "The Watcher never moves, but if it sees your light it wakes every stalker nearby.\nEvery five floors a Guardian guards the exit. It takes six flares; when its shadow wave comes, dim yourself and it will pass you by."),
+
+            // ---- floor events and stealth bonus
+            ["event.Blackout"] = ("APAGÓN", "BLACKOUT"),
+            ["event.Blackout.desc"] = ("cada tanto, la oscuridad se traga toda la luz", "now and then, darkness swallows all light"),
+            ["event.Blackout.warn"] = ("¡SE VIENE UN APAGÓN!", "A BLACKOUT IS COMING!"),
+            ["event.EmberRain"] = ("LLUVIA DE BRASAS", "EMBER RAIN"),
+            ["event.EmberRain.desc"] = ("caen brasas del techo cerca de ti", "embers fall from the ceiling near you"),
+            ["event.Tide"] = ("MAREA", "TIDE"),
+            ["event.Tide.desc"] = ("el agua sube y baja: no corras por ella", "the water rises and falls: don't run through it"),
+            ["hud.stealth"] = ("SIGILO", "STEALTH"),
         };
 
         public static bool English => SaveData.Language == "en";

@@ -207,3 +207,68 @@ namespace Lumen.Tests
         }
     }
 }
+
+namespace Lumen.Tests
+{
+    public class NewShadeTests
+    {
+        static int Count(DungeonMap map, EnemyKind kind) { int n = 0; foreach (var e in map.Enemies) if (e.Kind == kind) n++; return n; }
+
+        [Test]
+        public void FloorOne_HasOnlyTheBasics()
+        {
+            for (int seed = 0; seed < 30; seed++)
+            {
+                var map = DungeonGenerator.Generate(seed, FloorSettings.ForFloor(1));
+                foreach (var e in map.Enemies) Assert.AreEqual(EnemyKind.Stalker, e.Kind, "floor 1 should only have stalkers");
+            }
+        }
+
+        [Test]
+        public void Watchers_SitAgainstAWall()
+        {
+            for (int seed = 0; seed < 40; seed++)
+            {
+                var map = DungeonGenerator.Generate(seed, FloorSettings.ForFloor(6));
+                foreach (var e in map.Enemies)
+                    if (e.Kind == EnemyKind.Watcher) Assert.IsTrue(map.IsWall(e.Cell.x, e.Cell.y + 1), "watcher not on a wall (seed " + seed + ")");
+            }
+        }
+
+        [Test]
+        public void Guardian_OnlyOnEveryFifthFloor_GuardingTheExit()
+        {
+            for (int floor = 1; floor <= 15; floor++)
+                for (int seed = 0; seed < 10; seed++)
+                {
+                    var map = DungeonGenerator.Generate(seed, FloorSettings.ForFloor(floor));
+                    int guardians = Count(map, EnemyKind.Guardian);
+                    if (floor % 5 != 0) Assert.AreEqual(0, guardians, "floor " + floor + " seed " + seed);
+                    else Assert.LessOrEqual(guardians, 1);
+                    foreach (var e in map.Enemies)
+                        if (e.Kind == EnemyKind.Guardian) Assert.LessOrEqual(Vector2Int.Distance(e.Cell, map.Exit), 2.01f);
+                }
+        }
+
+        [Test]
+        public void BossFloors_UsuallyHaveTheirGuardian()
+        {
+            int with = 0;
+            for (int seed = 0; seed < 40; seed++)
+                foreach (var e in DungeonGenerator.Generate(seed, FloorSettings.ForFloor(5)).Enemies)
+                    if (e.Kind == EnemyKind.Guardian) with++;
+            Assert.GreaterOrEqual(with, 34, "at most ~15% of boss floors may miss the Guardian");
+        }
+
+        [Test]
+        public void NewShades_AppearAsTheDungeonDeepens()
+        {
+            Assert.AreEqual(0, FloorSettings.ForFloor(1).Mimics);
+            Assert.Greater(FloorSettings.ForFloor(2).Mimics, 0);
+            Assert.AreEqual(0, FloorSettings.ForFloor(2).Weavers);
+            Assert.Greater(FloorSettings.ForFloor(3).Weavers, 0);
+            Assert.AreEqual(0, FloorSettings.ForFloor(3).Watchers);
+            Assert.Greater(FloorSettings.ForFloor(4).Watchers, 0);
+        }
+    }
+}

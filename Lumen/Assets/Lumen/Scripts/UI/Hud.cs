@@ -28,6 +28,8 @@ namespace Lumen.UI
         readonly List<Image> arrows = new List<Image>();     // pooled objective markers
         readonly List<Transform> arrowTargets = new List<Transform>();
         Image lanternIcon, oilIcon, lureIcon, keyIcon;
+        PixelText bossName, stealthText;
+        readonly List<Image> bossPips = new List<Image>();
         PixelText oilCount, lureCount, timerText;
 
         /// <summary>Set when a map is picked up: every unlit brazier on the floor gets an edge marker.</summary>
@@ -84,6 +86,16 @@ namespace Lumen.UI
             // Objective tracker (top-center).
             brazierText = Ui.Text(root, "", Ui.Top, new Vector2(0, -6), 1, PixelText.Align.Center, Palette.UiText, 220);
 
+            // Boss bar: the Guardian's name and one pip per flare it still needs.
+            bossName = Ui.Text(root, "", Ui.Top, new Vector2(0, -30), 1, PixelText.Align.Center, Palette.UiDanger, 220);
+            for (int i = 0; i < 8; i++)
+            {
+                var pip = Ui.Box(root, Ui.Top, new Vector2((i - 3.5f) * 10f, -42), new Vector2(7, 4), Palette.UiDanger);
+                pip.rectTransform.pivot = new Vector2(0.5f, 1f);
+                pip.enabled = false;
+                bossPips.Add(pip);
+            }
+
             // Edge arrow toward the current objective.
             for (int i = 0; i < 8; i++)
             {
@@ -103,6 +115,7 @@ namespace Lumen.UI
             keyIcon = Ui.Sprite(root, SpriteBank.Item(Level.ItemKind.Key), Ui.TopLeft, new Vector2(118, -46), 1);
 
             timerText = Ui.Text(root, "", Ui.TopRight, new Vector2(-6, -28), 1, PixelText.Align.Right, Palette.UiText, 140);
+            stealthText = Ui.Text(root, "", Ui.TopRight, new Vector2(-6, -39), 1, PixelText.Align.Right, Palette.Stealth, 140);
 
             // Announcements (center), warnings and hints (bottom). Hints sit on a dark band for contrast.
             announceText = Ui.Text(root, "", Ui.Center, new Vector2(0, 40), 3, PixelText.Align.Center, Palette.UiText, 380);
@@ -195,6 +208,9 @@ namespace Lumen.UI
 
             UpdateObjectiveArrow(gm);
             UpdateInventory(gm);
+            UpdateBossBar(gm);
+            float m = gm.Current == GameManager.State.Playing ? gm.StealthMultiplier : 1f;
+            stealthText.Text = m > 1f ? Locale.Get("hud.stealth") + " X" + m.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) : "";
 
             announceTimer -= dt;
             float a = Mathf.Clamp01(announceTimer * 2f);
@@ -325,6 +341,27 @@ namespace Lumen.UI
                 timerText.Text = (int)(t / 60) + ":" + ((int)(t % 60)).ToString("00") + "." + (int)(t * 10 % 10);
             }
             else timerText.Text = "";
+        }
+
+        void UpdateBossBar(GameManager gm)
+        {
+            var boss = gm.Level != null ? gm.Level.Guardian : null;
+            bool show = boss != null && boss.IsAwake && !boss.IsDead && gm.Current == GameManager.State.Playing;
+            bossName.Text = show ? Locale.Get("boss.name") : "";
+            int max = show ? Mathf.Min(boss.MaxWounds, bossPips.Count) : 0;
+            float offset = (max - 1) * 0.5f;
+            bool blink = Mathf.Repeat(Time.unscaledTime * 4f, 1f) > 0.5f;
+            for (int i = 0; i < bossPips.Count; i++)
+            {
+                bool on = i < max;
+                bossPips[i].enabled = on;
+                if (!on) continue;
+                bossPips[i].rectTransform.anchoredPosition = new Vector2((i - offset) * 10f, -42);
+                bool remaining = i < boss.MaxWounds - boss.Wounds;
+                // Remaining wounds glow; while it is immune they flicker dark (same language as the Devourer).
+                bossPips[i].color = !remaining ? new Color(0.25f, 0.22f, 0.28f, 0.7f)
+                    : boss.Vulnerable ? (Color)Palette.FireOrange : new Color(0.5f, 0.4f, 0.55f, blink ? 0.9f : 0.4f);
+            }
         }
 
         static Level.ItemKind ActiveKind(RunState.Active a) => a switch

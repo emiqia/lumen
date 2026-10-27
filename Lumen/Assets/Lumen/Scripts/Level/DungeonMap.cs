@@ -5,7 +5,7 @@ namespace Lumen.Level
 {
     public enum Tile : byte { Wall = 0, Floor = 1 }
 
-    public enum EnemyKind { Stalker, Moth, Devourer }
+    public enum EnemyKind { Stalker, Moth, Devourer, Mimic, Weaver, Watcher, Guardian }
 
     /// <summary>What killed a shade: tells telemetry whether full light works as a weapon.</summary>
     public enum KillCause { Flare, PlayerLight, Brazier }

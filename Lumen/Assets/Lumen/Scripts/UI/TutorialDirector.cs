@@ -21,7 +21,7 @@ namespace Lumen.UI
         const float MinGap = 1.6f;   // an urgent hint may replace the current one after this long
         const float NormalGap = 5.5f;
 
-        static readonly HashSet<string> Urgent = new HashSet<string> { "tut.dim", "tut.flare", "tut.devourer" };
+        static readonly HashSet<string> Urgent = new HashSet<string> { "tut.dim", "tut.flare", "tut.devourer", "tut.guardian", "tut.watcher" };
 
         readonly Hud hud;
         readonly HashSet<string> requested = new HashSet<string>();
@@ -99,6 +99,11 @@ namespace Lumen.UI
             if (NearestShade(pos, EnemyKind.Devourer, 9f)) Request("tut.devourer");
             if (floorTime > 20f && player.TimeSprinting <= 0f) Request("tut.sprint");
             if (player.Run != null && player.Run.Lures > 0) Request("tut.item");
+            if (NearestShade(pos, EnemyKind.Watcher, 9f)) Request("tut.watcher");
+            if (player.InWeb) Request("tut.web");
+            foreach (var s in Shade.All)
+                if (s is Mimic m && !m.Disguised && Vector2.Distance(pos, m.transform.position) < 6f) { Request("tut.mimic"); break; }
+            if (level.Guardian != null && level.Guardian.IsAwake && !level.Guardian.IsDead) Request("tut.guardian");
 
             if (queue.Count == 0) return;
             float gap = Urgent.Contains(queue[0]) ? MinGap : NormalGap;

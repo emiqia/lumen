@@ -28,6 +28,7 @@ namespace Lumen.Player
         /// <summary>Shadow dust: unseen by everything for a few seconds.</summary>
         public bool IsInvisible => invisibleFor > 0f;
         public bool InGust { get; private set; }
+        public bool InWeb { get; private set; }
         /// <summary>The run this flame belongs to (inventory, run tuning). Null in the attract-mode demo.</summary>
         public RunState Run
         {
@@ -159,6 +160,7 @@ namespace Lumen.Player
                 : Mathf.Lerp(Tuning.minLightRadius, Tuning.maxLightRadius, FuelNormalized) * (IsSprinting ? Tuning.sprintLightBoost : 1f);
             if (InGust) targetRadius *= Tuning.windGustDim;
             if (IsInvisible) targetRadius = Mathf.Min(targetRadius, Tuning.dimLightRadius);
+            targetRadius *= 1f - 0.25f * FloorEventDirector.Darkness; // blackouts weigh on your flame too
             LightRadius = Mathf.Lerp(LightRadius, targetRadius, dt * 6f);
             flicker.baseRadius = LightRadius;
             flicker.baseIntensity = IsDimmed ? 0.7f : 1.15f;
@@ -189,6 +191,7 @@ namespace Lumen.Player
             if (!IsAlive) { body.linearVelocity = Vector2.zero; return; }
             Vector2 move = Controllable ? Controls.Move : Vector2.zero;
             float speed = IsDimmed ? Tuning.dimMoveSpeed : Tuning.moveSpeed * (IsSprinting ? Tuning.sprintSpeedMultiplier : 1f);
+            if (InWeb) speed *= Tuning.webSlow;
             Vector2 target = move * speed + (InGust ? gustPush : Vector2.zero);
             body.linearVelocity = Vector2.MoveTowards(body.linearVelocity, target, Tuning.acceleration * Time.fixedDeltaTime);
         }
@@ -207,6 +210,8 @@ namespace Lumen.Player
                     new Color(0.55f, 0.75f, 0.9f, 0.9f), 0.35f, false, -3f);
             }
             InGust = !boots && LevelHazards.GustAt(pos, out gustPush);
+            InWeb = !Tuning.ignoreWebs && LevelHazards.InWeb(pos);
+            if (InWeb) fuel.Add(-Tuning.webDrain * dt);
         }
 
         void TryUseItem()

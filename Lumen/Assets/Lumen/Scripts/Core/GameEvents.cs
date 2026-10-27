@@ -22,6 +22,8 @@ namespace Lumen.Core
         public static event Action ExitOpened;
         public static event Action PlayerReachedExit;
         public static event Action<Vector2> StalkerAlerted;             // a stalker spotted the player
+        public static event Action<Vector2> WatcherAlarm;               // a watcher called the stalkers
+        public static event Action<Vector2> GuardianAwoke;
         public static event Action<int> FloorStarted;
         public static event Action<int> FloorCleared;
         public static event Action<string> PlayerDied;                  // cause key
@@ -40,6 +42,8 @@ namespace Lumen.Core
         public static void RaiseExitOpened() => ExitOpened?.Invoke();
         public static void RaisePlayerReachedExit() => PlayerReachedExit?.Invoke();
         public static void RaiseStalkerAlerted(Vector2 p) => StalkerAlerted?.Invoke(p);
+        public static void RaiseWatcherAlarm(Vector2 p) => WatcherAlarm?.Invoke(p);
+        public static void RaiseGuardianAwoke(Vector2 p) => GuardianAwoke?.Invoke(p);
         public static void RaiseFloorStarted(int f) => FloorStarted?.Invoke(f);
         public static void RaiseFloorCleared(int f) => FloorCleared?.Invoke(f);
         public static void RaisePlayerDied(string cause) => PlayerDied?.Invoke(cause);
@@ -51,7 +55,7 @@ namespace Lumen.Core
         {
             Flare = null; Blast = null; EnemyKilled = null; PlayerHit = null; EmberCollected = null;
             BrazierLit = null; BrazierExtinguished = null; ExitOpened = null;
-            PlayerReachedExit = null; StalkerAlerted = null; ItemCollected = null; ItemUsed = null; PlayerRevived = null;
+            PlayerReachedExit = null; StalkerAlerted = null; WatcherAlarm = null; GuardianAwoke = null; ItemCollected = null; ItemUsed = null; PlayerRevived = null;
             FloorStarted = null; FloorCleared = null; PlayerDied = null; ScoreGained = null;
         }
     }

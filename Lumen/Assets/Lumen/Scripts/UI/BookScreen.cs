@@ -14,7 +14,7 @@ namespace Lumen.UI
     /// </summary>
     public class BookScreen : MonoBehaviour
     {
-        public const int PageCount = 10;
+        public const int PageCount = 12;
         const int TextChars = 24;
         const float OpenTime = 0.28f, FlipTime = 0.36f;
 
@@ -274,6 +274,16 @@ namespace Lumen.UI
                     for (int i = 0; i < 4; i++) Box(new Vector2(38 + i * 5, -8 + i * 6), new Vector2(9, 1), new Color(0.45f, 0.5f, 0.55f));
                     break;
                 case 10:
+                    Draw(SpriteBank.Ember[0], new Vector2(-34, 8), 3);
+                    Draw(SpriteBank.Mimic[1], new Vector2(-34, -24), 2);
+                    Draw(SpriteBank.Weaver[0], new Vector2(30, 6), 3);
+                    Draw(SpriteBank.Web, new Vector2(30, -26), 2).color = new Color(0.4f, 0.35f, 0.3f, 0.9f);
+                    break;
+                case 11:
+                    Draw(SpriteBank.Watcher[0], new Vector2(-34, 4), 3); Draw(SpriteBank.WatcherEyes[0], new Vector2(-34, 4), 3);
+                    Draw(SpriteBank.Guardian[0], new Vector2(28, -4), 2); Draw(SpriteBank.GuardianEyes[0], new Vector2(28, -4), 2);
+                    break;
+                case 12:
                     Box(Vector2.zero, new Vector2(48, 66), Palette.FireYellow);
                     Box(Vector2.zero, new Vector2(44, 62), new Color32(0x2a, 0x1e, 0x30, 255));
                     Caption("*", new Vector2(0, 6), 4, Palette.FireYellow);

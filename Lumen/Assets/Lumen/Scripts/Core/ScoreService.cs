@@ -13,6 +13,8 @@ namespace Lumen.Core
     {
         public int Score { get; private set; }
         public bool Counting { get; set; }
+        /// <summary>Stealth bonus: grows while nothing has seen you, resets when something does.</summary>
+        public float Multiplier { get; set; } = 1f;
 
         readonly GameTuning tuning;
 
@@ -41,6 +43,10 @@ namespace Lumen.Core
         {
             EnemyKind.Moth => tuning.scoreMoth,
             EnemyKind.Devourer => tuning.scoreDevourer,
+            EnemyKind.Mimic => 30,
+            EnemyKind.Weaver => 20,
+            EnemyKind.Watcher => 35,
+            EnemyKind.Guardian => 500,
             _ => tuning.scoreStalker,
         };
 
@@ -54,6 +60,7 @@ namespace Lumen.Core
         public void Add(int amount, Vector2 worldPos)
         {
             if (!Counting || amount <= 0) return;
+            amount = Mathf.RoundToInt(amount * Multiplier);
             Score += amount;
             GameEvents.RaiseScoreGained(amount, worldPos);
         }

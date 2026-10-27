@@ -135,6 +135,9 @@ namespace Lumen.Enemies
         /// <summary>Makes the shade aware of a position (e.g. born from the darkness hunting you).</summary>
         public virtual void Alert(Vector2 position) { }
 
+        /// <summary>Seconds in burning light before this shade dies.</summary>
+        protected virtual float BurnTime => Tuning.stalkerBurnTime;
+
         /// <summary>Where the body sprite sits relative to the root (fliers hover above their shadow).</summary>
         protected virtual Vector3 BodyOffset => Vector3.zero;
 
@@ -194,12 +197,12 @@ namespace Lumen.Enemies
             bool burning = byPlayer || LightField.InBrazierSafeZone(transform.position, out _);
             Burning = burning;
             burn = burning ? burn + dt : Mathf.Max(0f, burn - dt * 0.5f);
-            float t = Mathf.Clamp01(burn / Tuning.stalkerBurnTime);
+            float t = Mathf.Clamp01(burn / BurnTime);
             bodySprite.color = Color.Lerp(Color.white, new Color(1f, 0.55f, 0.4f), t);
             if (burning && Random.value < dt * 25f)
                 PixelParticles.Emit((Vector2)transform.position + Random.insideUnitCircle * 0.3f + Vector2.up * 0.4f,
                     Vector2.up, Palette.ShadeEdge, 0.6f, false, 1f);
-            if (burn >= Tuning.stalkerBurnTime) Kill(byPlayer ? KillCause.PlayerLight : KillCause.Brazier);
+            if (burn >= BurnTime) Kill(byPlayer ? KillCause.PlayerLight : KillCause.Brazier);
         }
 
         /// <summary>Flares kill up close and only stun further out, so they reward commitment.</summary>

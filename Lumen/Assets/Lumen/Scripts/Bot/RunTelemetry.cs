@@ -50,6 +50,7 @@ namespace Lumen.Bot
             public int killsStalker, killsMoth, killsDevourer;
             public int killsByFlare, killsByLight, killsByBrazier;
             public int hitsStalker, hitsMoth, hitsDevourer;
+            public int killsOther, hitsOther; // mimics, weavers, watchers, guardians
             public float minFuel = 999f;
             public List<FloorRecord> floors = new List<FloorRecord>();
         }
@@ -78,16 +79,24 @@ namespace Lumen.Bot
                 if (cause == KillCause.Flare) Current.killsByFlare++;
                 else if (cause == KillCause.PlayerLight) Current.killsByLight++;
                 else Current.killsByBrazier++;
-                if (k == EnemyKind.Stalker) Current.killsStalker++;
-                else if (k == EnemyKind.Moth) Current.killsMoth++;
-                else Current.killsDevourer++;
+                switch (k)
+                {
+                    case EnemyKind.Stalker: Current.killsStalker++; break;
+                    case EnemyKind.Moth: Current.killsMoth++; break;
+                    case EnemyKind.Devourer: Current.killsDevourer++; break;
+                    default: Current.killsOther++; break;
+                }
             };
             GameEvents.PlayerHit += (_, amount, k) =>
             {
                 if (Current == null) return;
-                if (k == EnemyKind.Stalker) Current.hitsStalker++;
-                else if (k == EnemyKind.Moth) Current.hitsMoth++;
-                else Current.hitsDevourer++;
+                switch (k)
+                {
+                    case EnemyKind.Stalker: Current.hitsStalker++; break;
+                    case EnemyKind.Moth: Current.hitsMoth++; break;
+                    case EnemyKind.Devourer: Current.hitsDevourer++; break;
+                    default: Current.hitsOther++; break;
+                }
                 if (floor != null) { floor.hitsTaken++; floor.fuelLostToHits += amount; }
             };
         }

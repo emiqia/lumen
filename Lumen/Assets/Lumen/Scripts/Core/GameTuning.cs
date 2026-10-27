@@ -100,6 +100,22 @@ namespace Lumen.Core
         public float doorOpenTime = 7f;
         public float doorClosedTime = 4f;
 
+        [Header("New shades")]
+        public float mimicDamage = 18f;
+        public float mimicRevealDistance = 1.5f;
+        public float mimicChaseSpeed = 3f;
+        public float weaverSpeed = 1.3f;
+        public float weaverDamage = 12f;
+        public float weaverWebInterval = 7f;
+        public float webSlow = 0.45f;          // speed multiplier inside a web
+        public float webDrain = 2f;            // extra fuel per second inside a web
+        public float watcherAlarmTime = 0.8f;  // seconds of seeing your light before it raises the alarm
+        public float watcherAlarmRadius = 16f;
+        public float guardianDamage = 25f;
+        public float guardianWaveDamage = 18f;
+        public int guardianWounds = 6;
+        public int guardianCenizas = 150;
+
         [Header("Pressure")]
         public float darknessSpawnInterval = 40f;    // a new stalker emerges if the floor drags on
         public float darknessSpawnMinInterval = 22f;

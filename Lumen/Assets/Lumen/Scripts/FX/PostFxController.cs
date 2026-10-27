@@ -65,6 +65,12 @@ namespace Lumen.FX
         /// <summary>Each biome has its own ambient tint (cold crypts, teal caverns, sickly roots).</summary>
         public void SetAmbient(Color color) => ambient.color = color;
 
+        void Update()
+        {
+            // Blackout event: the ambient light nearly dies out.
+            ambient.intensity = Tuning.ambientIntensity * SaveData.Brightness * (1f - 0.85f * FloorEventDirector.Darkness);
+        }
+
         public void ApplyBrightness()
         {
             float b = SaveData.Brightness;

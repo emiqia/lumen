@@ -52,7 +52,7 @@ namespace Lumen.Bot
             var t = GameTuning.I;
             Shade nearest = null;
             float nearestD = float.MaxValue;
-            bool unawareStalkerCouldSeeUs = false, chased = false;
+            bool unawareStalkerCouldSeeUs = false, chased = false, guardianNear = false;
             Stalker chaser = null;
             float chaserD = float.MaxValue;
             // How far a stalker would see us at full light: if one is that close and hasn't noticed, sneak.
@@ -71,6 +71,9 @@ namespace Lumen.Bot
                     else if (d < brightSight && los) unawareStalkerCouldSeeUs = true;
                 }
                 if (d < 3f && s.Kind != EnemyKind.Moth) repel += (pos - sp).normalized * (3f - d);
+                // An immune Guardian: keep distance until it can be hurt again.
+                if (s is Guardian gd && gd.IsAwake && !gd.Vulnerable && d < 6f) repel += (pos - sp).normalized * (6f - d) * 0.7f;
+                if (s is Guardian near && near.IsAwake && d < 10f) guardianNear = true;
                 // An enraged Devourer can't be flared: get away from it, as a person would.
                 if (s is Devourer rage && rage.Enraged && d < 7f) repel += (pos - sp).normalized * (7f - d) * 0.6f;
                 // Keep clear of any Devourer it can't flare right now (cooldown, low fuel or immune).
@@ -84,7 +87,8 @@ namespace Lumen.Bot
             bool standGround = chaser != null && chaserD < burnRadius + 0.8f && player.Fuel > 30f && !player.IsDimmed;
 
             bool flareReady = player.FlareCooldownLeft <= 0f && (player.Fuel > tuningCost + 8f || (gm.Run != null && gm.Run.Oil > 0));
-            if (nearest != null && flareReady && !(nearest is Devourer devourer && !devourer.Vulnerable))
+            if (nearest != null && flareReady && !(nearest is Devourer devourer && !devourer.Vulnerable)
+                && !(nearest is Guardian boss && (!boss.Vulnerable || !boss.IsAwake)))
             {
                 // Inside the kill radius (with a margin) so the flare is worth its cost. When standing
                 // ground against a stalker, only flare as a last resort (it's about to touch us).
@@ -157,6 +161,8 @@ namespace Lumen.Bot
             // Sneak past stalkers that haven't noticed us yet; once chased, full light is a weapon,
             // so stop sneaking. Don't bother while refueling.
             Dim = unawareStalkerCouldSeeUs && !chased && !standGround && !player.IsRefueling && player.Fuel > 12f;
+            // Near an awake Guardian, stay dimmed so its shadow wave passes harmlessly (flare still works).
+            if (guardianNear && player.Fuel > 12f) Dim = true;
 
             // Run on long, quiet stretches when fuel allows: never in water, never near threats.
             int remaining = path.Count - pathIndex;

@@ -18,6 +18,8 @@ namespace Lumen.Level
         public readonly List<Brazier> Braziers = new List<Brazier>();
         public ExitPortal Exit;
         public readonly List<Door> Doors = new List<Door>();
+        /// <summary>The boss of this floor, if any: the exit stays sealed until it falls.</summary>
+        public Guardian Guardian;
         internal readonly List<Object> OwnedAssets = new List<Object>();
 
         public int LitBraziers
@@ -81,9 +83,14 @@ namespace Lumen.Level
             {
                 EnemyKind.Moth => Moth.Create(pos, level.Root.transform),
                 EnemyKind.Devourer => Devourer.Create(pos, level.Root.transform),
+                EnemyKind.Mimic => Mimic.Create(pos, level.Root.transform),
+                EnemyKind.Weaver => Weaver.Create(pos, level.Root.transform),
+                EnemyKind.Watcher => Watcher.Create(pos, level.Root.transform),
+                EnemyKind.Guardian => Guardian.Create(pos, level.Root.transform),
                 _ => Stalker.Create(pos, level.Root.transform),
             };
             s.Init(level.Map, level.Pathfinder, level.Settings.EnemySpeedMultiplier);
+            if (s is Guardian g) level.Guardian = g;
             return s;
         }
 

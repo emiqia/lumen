@@ -28,6 +28,15 @@ namespace Lumen.Art
         public static Sprite ExitMarker { get; private set; }
         public static Sprite DoorVertical { get; private set; }
         public static Sprite ChestClosed { get; private set; }
+        public static Sprite[] Mimic { get; private set; }
+        public static Sprite[] MimicEyes { get; private set; }
+        public static Sprite[] Weaver { get; private set; }
+        public static Sprite[] WeaverEyes { get; private set; }
+        public static Sprite Web { get; private set; }
+        public static Sprite[] Watcher { get; private set; }
+        public static Sprite[] WatcherEyes { get; private set; }
+        public static Sprite[] Guardian { get; private set; }
+        public static Sprite[] GuardianEyes { get; private set; }
         public static Sprite ChestOpen { get; private set; }
         public static Sprite DoorHorizontal { get; private set; }
         static Sprite[] items;
@@ -86,6 +95,19 @@ namespace Lumen.Art
                 Make(LightBombCanvas(), "item_bomb", new Vector2(0.5f, 0.5f)),
                 Make(BootsCanvas(), "item_boots", new Vector2(0.5f, 0.5f)),
             };
+            Mimic = Frames(2, i => MimicFrame(i), "mimic", new Vector2(0.5f, 0.3f));
+            MimicEyes = new[] { Make(MimicEyesCanvas(Palette.ShadeEye), "mimic_eyes", new Vector2(0.5f, 0.3f)),
+                                Make(MimicEyesCanvas(Palette.ShadeEyeAlt), "mimic_eyes_cb", new Vector2(0.5f, 0.3f)) };
+            Weaver = Frames(2, i => WeaverFrame(i), "weaver", new Vector2(0.5f, 0.3f));
+            WeaverEyes = new[] { Make(WeaverEyesCanvas(Palette.ShadeEye), "weaver_eyes", new Vector2(0.5f, 0.3f)),
+                                 Make(WeaverEyesCanvas(Palette.ShadeEyeAlt), "weaver_eyes_cb", new Vector2(0.5f, 0.3f)) };
+            Web = Make(WebCanvas(), "web", new Vector2(0.5f, 0.5f));
+            Watcher = Frames(2, i => WatcherFrame(i), "watcher", new Vector2(0.5f, 0.3f));
+            WatcherEyes = new[] { Make(WatcherEyeCanvas(new Color32(255, 220, 120, 255)), "watcher_eye", new Vector2(0.5f, 0.3f)),
+                                  Make(WatcherEyeCanvas(new Color32(120, 230, 255, 255)), "watcher_eye_cb", new Vector2(0.5f, 0.3f)) };
+            Guardian = Frames(2, i => GuardianFrame(i), "guardian", new Vector2(0.5f, 0.15f));
+            GuardianEyes = new[] { Make(GuardianEyesCanvas(new Color32(200, 120, 255, 255)), "guardian_eyes", new Vector2(0.5f, 0.15f)),
+                                   Make(GuardianEyesCanvas(new Color32(255, 255, 120, 255)), "guardian_eyes_cb", new Vector2(0.5f, 0.15f)) };
             ChestClosed = Make(ChestCanvas(false), "chest_closed", new Vector2(0.5f, 0.3f));
             ChestOpen = Make(ChestCanvas(true), "chest_open", new Vector2(0.5f, 0.3f));
             Ember = Frames(4, i => EmberFrame(i), "ember", new Vector2(0.5f, 0.5f));
@@ -411,6 +433,115 @@ namespace Lumen.Art
             p.Set(5, 9, Palette.FireRed); p.Set(10, 6, Palette.FireRed); p.Set(8, 8, Palette.FireRed); // marked fires
             for (int x = 5; x < 10; x++) p.Set(x, 7 + (x % 2), Palette.StoneDark); // a path
             p.Outline(new Color32(10, 8, 14, 255));
+            return p;
+        }
+
+        // ---------------------------------------------------------------- New enemies
+        // Mimic revealed: an ember that splits open into a jagged mouth.
+        static PixelCanvas MimicFrame(int frame)
+        {
+            var p = new PixelCanvas(16, 16);
+            int gape = frame == 0 ? 1 : 3;
+            p.Ellipse(8, 6 + gape * 0.5f, 4.5f, 3.5f + gape * 0.3f, new Color32(120, 40, 20, 255));
+            p.Ellipse(8, 6 + gape * 0.5f, 3.2f, 2.4f, new Color32(60, 14, 10, 255));          // throat
+            for (int x = 4; x <= 12; x += 2) { p.Set(x, 6 + gape, Palette.Bone); p.Set(x + 1, 5, Palette.Bone); } // teeth
+            p.Set(6, 10 + gape / 2, Palette.FireOrange); p.Set(10, 10 + gape / 2, Palette.FireRed); // smoldering crown
+            p.Outline(new Color32(10, 8, 14, 255));
+            return p;
+        }
+
+        static PixelCanvas MimicEyesCanvas(Color32 eye)
+        {
+            var p = new PixelCanvas(16, 16);
+            p.Set(6, 9, eye); p.Set(10, 9, eye);
+            return p;
+        }
+
+        // Weaver: a long-legged spider.
+        static PixelCanvas WeaverFrame(int frame)
+        {
+            var p = new PixelCanvas(16, 16);
+            var leg = new Color32(40, 30, 48, 255);
+            for (int i = 0; i < 4; i++)
+            {
+                int lift = (i + frame) % 2;
+                int y = 4 + i * 2;
+                p.Set(4, y + lift, leg); p.Set(3, y + 1 + lift, leg); p.Set(2, y + lift, leg); p.Set(1, y - 1 + lift, leg);
+                p.Set(11, y + lift, leg); p.Set(12, y + 1 + lift, leg); p.Set(13, y + lift, leg); p.Set(14, y - 1 + lift, leg);
+            }
+            p.Ellipse(8, 7, 3.5f, 3f, Palette.ShadeBody);          // abdomen
+            p.Ellipse(8, 11, 2.2f, 1.8f, Palette.ShadeEdge);        // head
+            p.Set(7, 6, new Color32(110, 40, 60, 255)); p.Set(9, 7, new Color32(110, 40, 60, 255)); // markings
+            return p;
+        }
+
+        static PixelCanvas WeaverEyesCanvas(Color32 eye)
+        {
+            var p = new PixelCanvas(16, 16);
+            p.Set(7, 11, eye); p.Set(9, 11, eye); p.Set(6, 12, eye); p.Set(10, 12, eye);
+            return p;
+        }
+
+        static PixelCanvas WebCanvas()
+        {
+            var p = new PixelCanvas(16, 16);
+            var silk = new Color32(225, 225, 235, 140);
+            for (int i = 0; i < 16; i++) { p.Set(i, i, silk); p.Set(15 - i, i, silk); p.Set(i, 8, silk); p.Set(8, i, silk); }
+            foreach (float r in new[] { 2.5f, 5f, 7.5f })
+                for (int a = 0; a < 32; a++)
+                {
+                    float t = a / 32f * Mathf.PI * 2f;
+                    p.Set(8 + Mathf.RoundToInt(Mathf.Cos(t) * r), 8 + Mathf.RoundToInt(Mathf.Sin(t) * r), silk);
+                }
+            return p;
+        }
+
+        // Watcher: a fleshy eye set in a stone socket.
+        static PixelCanvas WatcherFrame(int frame)
+        {
+            var p = new PixelCanvas(16, 16);
+            p.Ellipse(8, 7, 6f, 5f, Palette.StoneDark);                       // socket
+            p.Ellipse(8, 7, 4.5f, frame == 0 ? 3.5f : 2.5f, new Color32(200, 180, 170, 255)); // sclera (blinks)
+            for (int x = 3; x < 13; x += 3) p.Set(x, 7, new Color32(160, 60, 70, 255));     // veins
+            p.Outline(new Color32(10, 8, 14, 255));
+            return p;
+        }
+
+        static PixelCanvas WatcherEyeCanvas(Color32 iris)
+        {
+            var p = new PixelCanvas(16, 16);
+            p.Ellipse(8, 7, 2f, 2f, iris);
+            p.Set(8, 7, new Color32(10, 8, 14, 255));                          // pupil
+            return p;
+        }
+
+        // Guardian: a towering, crowned shade.
+        static PixelCanvas GuardianFrame(int frame)
+        {
+            var p = new PixelCanvas(32, 32);
+            float sway = frame == 0 ? 0f : 0.8f;
+            for (int x = 0; x < 32; x++)
+                for (int y = 0; y < 32; y++)
+                {
+                    float fx = x + 0.5f - 16f;
+                    float top = 26f - fx * fx * 0.06f;
+                    float bottom = 1.5f + Mathf.Sin(x * 0.9f + sway * 3f) * 1.2f;
+                    if (y > top || y < bottom || Mathf.Abs(fx) > 13f - Mathf.Max(0, 8 - y) * 0.3f) continue;
+                    p.Set(x, y, Mathf.Abs(fx) > 10.5f || y > top - 1.5f ? Palette.DevourerEdge : Palette.DevourerBody);
+                }
+            for (int i = 0; i < 5; i++) // crown of horns
+            {
+                int hx = 8 + i * 4;
+                for (int k = 0; k < 3 + (i % 2) * 2; k++) p.Set(hx, 26 + k, Palette.BoneDark);
+            }
+            p.Rect(11, 12, 10, 3, Palette.DevourerMaw);                        // mouth slit
+            return p;
+        }
+
+        static PixelCanvas GuardianEyesCanvas(Color32 eye)
+        {
+            var p = new PixelCanvas(32, 32);
+            p.Rect(11, 19, 3, 2, eye); p.Rect(18, 19, 3, 2, eye); p.Rect(15, 22, 2, 2, eye);
             return p;
         }
 

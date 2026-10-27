@@ -17,6 +17,8 @@ namespace Lumen.Level
         public int Braziers;
         public int Embers;
         public int Stalkers, Moths, Devourers;
+        public int Mimics, Weavers, Watchers;
+        public bool Guardian;             // boss floor: a Guardian waits in the exit room
         public float EnemySpeedMultiplier;
         public float ExtraLoopChance;
         public Biome Biome;
@@ -46,6 +48,10 @@ namespace Lumen.Level
                 Stalkers = Mathf.Min(2 + floor * 2 / 3, 14),
                 Moths = floor >= 2 ? Mathf.Min(floor / 2, 8) : 0,
                 Devourers = floor >= 3 ? 1 + (floor - 3) / 4 : 0,
+                Mimics = floor >= 2 ? Mathf.Min(1 + (floor - 2) / 2, 4) : 0,
+                Weavers = floor >= 3 ? Mathf.Min(1 + (floor - 3) / 3 + (BiomeFor(floor) == Biome.Roots ? 1 : 0), 4) : 0,
+                Watchers = floor >= 4 ? Mathf.Min(1 + (floor - 4) / 3, 3) : 0,
+                Guardian = floor % 5 == 0,
                 EnemySpeedMultiplier = Mathf.Min(1f + 0.03f * Mathf.Max(0, floor - 8), 1.3f),
                 ExtraLoopChance = 0.35f,
                 Biome = BiomeFor(floor),
@@ -209,12 +215,18 @@ namespace Lumen.Level
             var dist = map.DistanceField(map.PlayerSpawn);
 
             // Exit: in the room whose center is farthest (by walking distance) from the start.
+            // On boss floors only big rooms qualify, so there is space to fight the Guardian.
             int exitRoom = 0, far = -1;
-            for (int i = 1; i < map.Rooms.Count; i++)
-            {
-                var c = Center(map.Rooms[i]);
-                if (dist[c.x, c.y] > far) { far = dist[c.x, c.y]; exitRoom = i; }
-            }
+            for (int pass = 0; pass < 3 && far < 0; pass++)
+                for (int i = 1; i < map.Rooms.Count; i++)
+                {
+                    var r = map.Rooms[i];
+                    var rc = Center(r);
+                    if (s.Guardian && pass == 0 && (r.width * r.height < 56 || dist[rc.x, rc.y] < MinEnemySteps + 6)) continue;
+                    if (s.Guardian && pass == 1 && r.width * r.height < 56) continue;
+                    var c = Center(r);
+                    if (dist[c.x, c.y] > far) { far = dist[c.x, c.y]; exitRoom = i; }
+                }
             map.Exit = Center(map.Rooms[exitRoom]);
 
             var used = new HashSet<Vector2Int> { map.PlayerSpawn, map.Exit };
@@ -266,6 +278,36 @@ namespace Lumen.Level
             Spawn(EnemyKind.Stalker, s.Stalkers);
             Spawn(EnemyKind.Moth, s.Moths);
             Spawn(EnemyKind.Devourer, s.Devourers);
+            Spawn(EnemyKind.Mimic, s.Mimics);
+            Spawn(EnemyKind.Weaver, s.Weavers);
+
+            // Watchers sit against a wall (the south face of a wall above them), far from the start.
+            int watchers = 0;
+            foreach (var c in enemyCells)
+            {
+                if (watchers >= s.Watchers) break;
+                if (!map.IsWall(c.x, c.y + 1) || used.Contains(c)) continue;
+                bool taken = false;
+                foreach (var e2 in map.Enemies) if (e2.Cell == c) taken = true;
+                if (taken) continue;
+                map.Enemies.Add(new EnemySpawn(EnemyKind.Watcher, c));
+                used.Add(c);
+                watchers++;
+            }
+
+            // The Guardian guards the exit itself.
+            // Never closer than any other enemy may be to the start; if the exit is too close for
+            // that, the floor goes without its boss rather than ambushing the player at spawn.
+            if (s.Guardian)
+            {
+                Vector2Int? spot = null;
+                foreach (var offset in new[] { Vector2Int.up * 2, Vector2Int.down * 2, Vector2Int.left * 2, Vector2Int.right * 2, Vector2Int.zero })
+                {
+                    var g = map.Exit + offset;
+                    if (map.IsFloor(g) && dist[g.x, g.y] >= MinEnemySteps) { spot = g; break; }
+                }
+                if (spot.HasValue) map.Enemies.Add(new EnemySpawn(EnemyKind.Guardian, spot.Value));
+            }
 
             PlaceItems(map, s, rng, used);
             if (s.Chest) PlaceChest(map, rng, used);

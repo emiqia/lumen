@@ -30,6 +30,7 @@ namespace Lumen.Core
         public State Current { get; private set; }
         public int Floor { get; private set; }
         public int Score => score.Score;
+        public float StealthMultiplier => score.Multiplier;
         public float RunTime { get; private set; }
         public float FloorTime { get; private set; }
         public int BraziersLit { get; private set; }
@@ -67,6 +68,9 @@ namespace Lumen.Core
         int runSeed;
         int cenizasBonus;     // extra Cenizas found in chests this run
         bool seenThisFloor;   // for the "ghost" challenge: did any stalker spot you on this floor?
+        float unseenTime;     // stealth bonus clock
+        FloorEventKind floorEvent;
+        public const float StealthStep = 10f, StealthMax = 3f;
         int flowVersion;       // bumped on every run start / title entry, so stale coroutines can tell
         bool gameOverShown;    // game-over input is ignored until the screen is actually up
         static float hitStopUntil;
@@ -127,7 +131,12 @@ namespace Lumen.Core
             GameEvents.PlayerReachedExit += CompleteFloor;
             GameEvents.ItemCollected += (_, kind) => hud.Announce("", Locale.Get("item." + kind), 1.6f);
             GameEvents.PlayerRevived += _ => hud.Announce(Locale.Get("hud.revived"), "", 2f, Palette.FireYellow);
-            GameEvents.StalkerAlerted += _ => { if (Current == State.Playing) seenThisFloor = true; };
+            GameEvents.StalkerAlerted += _ => { if (Current == State.Playing) { seenThisFloor = true; BreakStealth(); } };
+            GameEvents.WatcherAlarm += _ => BreakStealth();
+            GameEvents.PlayerHit += (_, __, ___) => BreakStealth();
+            FloorEventDirector.BlackoutWarning += () => { if (Current == State.Playing) hud.Announce(Locale.Get("event.Blackout.warn"), "", 2f, Palette.UiDanger); };
+            GameEvents.GuardianAwoke += _ => { if (Current == State.Playing) hud.Announce(Locale.Get("boss.awake"), Locale.Get("boss.awake.sub"), 2.6f, Palette.UiDanger); };
+            GameEvents.EnemyKilled += (_, kind, __) => { if (kind == EnemyKind.Guardian) OnGuardianDefeated(); };
         }
 
         /// <summary>Applies persisted settings: brightness, audio volumes and window mode.</summary>
@@ -258,6 +267,8 @@ namespace Lumen.Core
             hud.ClearTransient();
             hud.Announce(FloorNames.Title(floor, seed), Locale.Get("floor.enter") + " " + floor + "  -  " + FloorNames.Subtitle(floor), 3.2f);
             tutorial.BeginFloor();
+            if (floorEvent != FloorEventKind.None)
+                hud.Hint(Locale.Get(FloorEvents.NameKey(floorEvent)) + ": " + Locale.Get(FloorEvents.DescKey(floorEvent)), 5f);
             GameEvents.RaiseFloorStarted(floor);
             Telemetry.BeginFloor(floor);
 
@@ -316,6 +327,30 @@ namespace Lumen.Core
             }
         }
 
+        void BreakStealth()
+        {
+            unseenTime = 0f;
+            score.Multiplier = 1f;
+        }
+
+        /// <summary>Boss reward: Cenizas, a free blessing, and the exit can now open.</summary>
+        void OnGuardianDefeated()
+        {
+            if (Current != State.Playing || run == null) return;
+            cenizasBonus += run.Tuning.guardianCenizas;
+            if (Telemetry.Current != null) Telemetry.Current.guardiansKilled++;
+            var gift = Blessing.Offer(runSeed * 17 + Floor, 1, run.Blessings, Meta.IsUnlocked);
+            string sub = "+" + run.Tuning.guardianCenizas + " " + Locale.Get("meta.cenizas");
+            if (gift.Count > 0)
+            {
+                run.Take(gift[0]);
+                Telemetry.OnBlessing(gift[0].Id);
+                sub += "   " + Locale.Get(gift[0].NameKey);
+            }
+            hud.Announce(Locale.Get("boss.defeated"), sub, 3f, Palette.FireYellow);
+            RecountBraziers();
+        }
+
         /// <summary>Opens this floor's chest if the run carries its key: a rare item and some Cenizas.</summary>
         bool TryOpenChest(Vector2 at)
         {
@@ -362,6 +397,9 @@ namespace Lumen.Core
             level = LevelBuilder.Build(map, settings, seed, transform);
             player = PlayerFlame.Create(DungeonMap.CellToWorld(map.PlayerSpawn), run?.Character);
             seenThisFloor = false;
+            BreakStealth();
+            floorEvent = run != null ? FloorEvents.Pick(floor, seed) : FloorEventKind.None; // the attract demo stays plain
+            if (floorEvent != FloorEventKind.None) FloorEventDirector.Create(level.Root.transform, level, floorEvent);
             if (run != null)
             {
                 run.Keys = false;
@@ -404,7 +442,8 @@ namespace Lumen.Core
             BraziersLit = level.LitBraziers;
             if (Current == State.Playing) Telemetry.OnBraziersChanged(BraziersLit, before);
 
-            bool allLit = BraziersLit == level.Braziers.Count;
+            // On boss floors the exit also waits for the Guardian to fall.
+            bool allLit = BraziersLit == level.Braziers.Count && (level.Guardian == null || level.Guardian.IsDead);
             bool wasOpen = level.Exit.IsOpen;
             level.Exit.SetOpen(allLit);
             if (allLit && !wasOpen && Current == State.Playing) hud.Announce("", Locale.Get("hud.exit"), 2.5f);
@@ -544,6 +583,9 @@ namespace Lumen.Core
             if (Current != State.Playing) return;
 
             RunTime += dt;
+            // Stealth bonus: +0.5 every 10 s unseen, up to x3; any detection resets it.
+            unseenTime += dt;
+            score.Multiplier = Mathf.Min(StealthMax, 1f + 0.5f * Mathf.Floor(unseenTime / StealthStep));
             Telemetry.Sample(player.Fuel, player.IsDimmed, player.IsSprinting, dt);
             if (!Headless) tutorial.Tick(dt, level, player);
 

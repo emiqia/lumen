@@ -81,8 +81,10 @@ namespace Lumen.Art
         /// </summary>
         public static Color32 EyeColor(Level.EnemyKind kind) => kind switch
         {
-            Level.EnemyKind.Stalker => Core.SaveData.Colorblind ? ShadeEyeAlt : ShadeEye,
+            Level.EnemyKind.Stalker or Level.EnemyKind.Mimic or Level.EnemyKind.Weaver => Core.SaveData.Colorblind ? ShadeEyeAlt : ShadeEye,
             Level.EnemyKind.Devourer => Core.SaveData.Colorblind ? DevourerEyeAlt : DevourerEye,
+            Level.EnemyKind.Watcher => Core.SaveData.Colorblind ? new Color32(120, 230, 255, 255) : new Color32(255, 220, 120, 255),
+            Level.EnemyKind.Guardian => Core.SaveData.Colorblind ? new Color32(255, 255, 120, 255) : new Color32(200, 120, 255, 255),
             _ => new Color32(255, 240, 200, 255),
         };
     }

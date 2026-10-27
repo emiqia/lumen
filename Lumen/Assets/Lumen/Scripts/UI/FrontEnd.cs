@@ -136,12 +136,12 @@ namespace Lumen.UI
             int sel = Mathf.Max(0, Character.IndexOf(Character.Get(Meta.SelectedCharacter)));
             Menu(Mode.Characters, new Vector2(-96, 52), cItems, sel).SelectionChanged += _ => RefreshInfo();
             var cp = panels[Mode.Characters];
-            characterPreview = Ui.Box(cp, Ui.Center, new Vector2(84, 30), new Vector2(80, 80), Color.white);
+            characterPreview = Ui.Box(cp, Ui.Center, new Vector2(84, 38), new Vector2(80, 80), Color.white);
             characterPreview.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            characterName = Ui.Text(cp, "", Ui.Center, new Vector2(84, -18), 1, PixelText.Align.Center, Palette.FireYellow, 200);
-            characterQuote = Ui.Text(cp, "", Ui.Center, new Vector2(84, -30), 1, PixelText.Align.Center, Palette.UiDim, 200);
+            characterName = Ui.Text(cp, "", Ui.Center, new Vector2(84, -10), 1, PixelText.Align.Center, Palette.FireYellow, 200);
+            characterQuote = Ui.Text(cp, "", Ui.Center, new Vector2(84, -22), 1, PixelText.Align.Center, Palette.UiDim, 200);
             characterQuote.rectTransform.pivot = new Vector2(0.5f, 1f);
-            characterAbility = Ui.Text(cp, "", Ui.Center, new Vector2(84, -58), 1, PixelText.Align.Center, Palette.UiText, 200);
+            characterAbility = Ui.Text(cp, "", Ui.Center, new Vector2(84, -44), 1, PixelText.Align.Center, Palette.UiText, 200);
             characterAbility.rectTransform.pivot = new Vector2(0.5f, 1f);
 
             // ---- provisions (pre-run shop)
@@ -171,7 +171,7 @@ namespace Lumen.UI
             }
             uItems.Add(new MenuItem(() => Locale.Get("menu.back"), () => SetMode(Mode.Title)));
             Menu(Mode.Unlocks, new Vector2(0, 66), uItems, rowHeight: 11).SelectionChanged += _ => RefreshInfo();
-            unlockDesc = Info(Mode.Unlocks, new Vector2(0, -84), Palette.UiText);
+            unlockDesc = Info(Mode.Unlocks, new Vector2(0, -72), Palette.UiText);
 
             // ---- challenges
             Panel(Mode.Challenges, "chal.title");

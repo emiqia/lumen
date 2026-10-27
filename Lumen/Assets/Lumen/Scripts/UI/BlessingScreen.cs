@@ -27,7 +27,7 @@ namespace Lumen.UI
         PixelText title, hint;
         readonly List<RectTransform> cards = new List<RectTransform>();
         readonly List<CanvasGroup> cardGroups = new List<CanvasGroup>();
-        readonly List<Image> frames = new List<Image>(), glows = new List<Image>(), icons = new List<Image>(), backs = new List<Image>();
+        readonly List<Image> frames = new List<Image>(), glows = new List<Image>(), icons = new List<Image>(), backs = new List<Image>(), faces = new List<Image>();
         readonly List<PixelText> names = new List<PixelText>(), descs = new List<PixelText>();
         List<Blessing> offer;
         int selected;
@@ -82,7 +82,9 @@ namespace Lumen.UI
                 var backInner = Ui.Box(backBorder.rectTransform, Ui.Center, Vector2.zero, new Vector2(CardW - 16, CardH - 16), new Color32(0x2a, 0x1a, 0x30, 255));
                 backInner.rectTransform.pivot = new Vector2(0.5f, 0.5f);
                 Ui.Text(backInner.rectTransform, "#", Ui.Center, new Vector2(0, 0), 3, PixelText.Align.Center, Palette.FireOrange, 40);
+                back.transform.SetAsLastSibling();
                 backs.Add(back);
+                faces.Add(face);
                 cards.Add(card);
                 frames.Add(frame);
                 glows.Add(glow);
@@ -167,8 +169,9 @@ namespace Lumen.UI
                 float y = Mathf.Lerp(-36f, 0f, k) + lift;
                 // Dealt face-down: the back narrows to nothing, then the face opens out.
                 float scaleX = Mathf.Abs(1f - 2f * k);
-                backs[i].enabled = k < 0.5f;
-                backs[i].transform.GetChild(0).gameObject.SetActive(k < 0.5f);
+                // Only one side exists at a time, so the two can never show through each other.
+                backs[i].gameObject.SetActive(k < 0.5f);
+                faces[i].gameObject.SetActive(k >= 0.5f);
                 float scale = 1f;
                 float alpha = k;
 

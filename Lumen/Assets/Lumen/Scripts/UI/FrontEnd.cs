@@ -74,9 +74,10 @@ namespace Lumen.UI
             return p;
         }
 
-        MenuList Menu(Mode mode, Vector2 pos, List<MenuItem> items, int select = 0)
+        MenuList Menu(Mode mode, Vector2 pos, List<MenuItem> items, int select = 0, int rowHeight = 13)
         {
             var m = MenuList.Create(panels[mode], Ui.Center, pos);
+            m.RowHeight = rowHeight;
             m.SetItems(items, select);
             menus[mode] = m;
             return m;
@@ -167,8 +168,8 @@ namespace Lumen.UI
                     () => Buy(unlock)));
             }
             uItems.Add(new MenuItem(() => Locale.Get("menu.back"), () => SetMode(Mode.Title)));
-            Menu(Mode.Unlocks, new Vector2(0, 62), uItems).SelectionChanged += _ => RefreshInfo();
-            unlockDesc = Info(Mode.Unlocks, new Vector2(0, -78), Palette.UiText);
+            Menu(Mode.Unlocks, new Vector2(0, 66), uItems, rowHeight: 11).SelectionChanged += _ => RefreshInfo();
+            unlockDesc = Info(Mode.Unlocks, new Vector2(0, -84), Palette.UiText);
 
             // ---- challenges
             Panel(Mode.Challenges, "chal.title");
@@ -380,6 +381,7 @@ namespace Lumen.UI
 
             // The book has its own hint line; don't overlap it with the menu's.
             hint.gameObject.SetActive(Current != Mode.Hidden && !book.IsOpen);
+            cenizas.gameObject.SetActive(Current != Mode.Hidden && Current != Mode.Pause && !book.IsOpen);
             if (Current == Mode.Hidden || book.IsOpen) return;
 
             if (Current == Mode.Title)

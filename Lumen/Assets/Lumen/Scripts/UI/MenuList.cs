@@ -26,7 +26,8 @@ namespace Lumen.UI
     /// </summary>
     public class MenuList : MonoBehaviour
     {
-        const int RowHeight = 13;
+        /// <summary>Vertical distance between rows; long lists can tighten it before SetItems.</summary>
+        public int RowHeight { get; set; } = 13;
 
         readonly List<PixelText> rows = new List<PixelText>();
         List<MenuItem> items = new List<MenuItem>();

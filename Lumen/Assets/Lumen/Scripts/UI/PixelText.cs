@@ -81,7 +81,8 @@ namespace Lumen.UI
 
         void Quad(VertexHelper vh, float x, float y, Rect uv, Color c)
         {
-            float w = PixelFont.GlyphW * scale, h = PixelFont.GlyphH * scale;
+            float w = PixelFont.GlyphW * scale, h = (PixelFont.GlyphH + PixelFont.Descent) * scale;
+            y -= PixelFont.Descent * scale; // the atlas cell starts below the baseline
             int i = vh.currentVertCount;
             Color32 c32 = c;
             vh.AddVert(new Vector3(x, y), c32, new Vector2(uv.xMin, uv.yMin));

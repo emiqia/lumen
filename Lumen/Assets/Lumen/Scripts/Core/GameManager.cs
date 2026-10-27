@@ -70,6 +70,7 @@ namespace Lumen.Core
         bool seenThisFloor;   // for the "ghost" challenge: did any stalker spot you on this floor?
         float unseenTime;     // stealth bonus clock
         FloorEventKind floorEvent;
+        public FloorEventKind FloorEvent => floorEvent;
         public const float StealthStep = 10f, StealthMax = 3f;
         int flowVersion;       // bumped on every run start / title entry, so stale coroutines can tell
         bool gameOverShown;    // game-over input is ignored until the screen is actually up

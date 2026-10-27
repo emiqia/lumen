@@ -6,6 +6,7 @@ using Lumen.Core;
 using Lumen.Enemies;
 using Lumen.Level;
 using Lumen.Lighting;
+using Lumen.UI;
 using UnityEngine;
 
 namespace Lumen.Bot
@@ -89,9 +90,17 @@ namespace Lumen.Bot
                 gm.FrontEnd.ShowOptions();
                 yield return new WaitForSecondsRealtime(0.5f);
                 Capture("menu_options");
+                foreach (var mode in new[] { FrontEnd.Mode.Characters, FrontEnd.Mode.Provisions, FrontEnd.Mode.Unlocks, FrontEnd.Mode.Challenges })
+                {
+                    gm.FrontEnd.ShowScreen(mode);
+                    yield return new WaitForSecondsRealtime(0.6f);
+                    Capture("menu_" + mode.ToString().ToLowerInvariant());
+                }
                 gm.FrontEnd.ShowTitle();
                 gm.Book.Open(beforeRun: false);
-                foreach (int page in new[] { 1, 3, 7, 8 })
+                yield return new WaitForSecondsRealtime(0.12f);
+                Capture("book_opening");
+                foreach (int page in new[] { 1, 2, 7, 10, 11, 12 })
                 {
                     gm.Book.GoToPage(page);
                     yield return new WaitForSecondsRealtime(0.5f);
@@ -107,7 +116,7 @@ namespace Lumen.Bot
                 UnityEngine.Random.InitState(seed);
                 gm.StartRun(difficulty, seed); // the run seed is recorded in telemetry by GameManager
                 float start = Time.unscaledTime;
-                int shotFloor = 0, enemyShots = 0;
+                int shotFloor = 0, enemyShots = 0, shotEventFloor = 0;
                 bool shotBrazier = false, shotBlessing = false;
                 float nextEnemyShot = 0f;
 
@@ -122,7 +131,9 @@ namespace Lumen.Bot
                     if (shots && !shotBlessing && gm.Current == GameManager.State.ChoosingBlessing)
                     {
                         shotBlessing = true;
-                        yield return new WaitForSecondsRealtime(0.3f); // let the cards draw
+                        yield return new WaitForSecondsRealtime(0.25f); // mid-deal
+                        Capture($"run{i}_blessing_dealing");
+                        yield return new WaitForSecondsRealtime(1f);
                         Capture($"run{i}_blessing");
                     }
                     if (shots && i < 3 && gm.Current == GameManager.State.Playing)
@@ -139,10 +150,16 @@ namespace Lumen.Bot
                         }
                         if (LightField.Player != null && LightField.Player.Fuel < 25f && UnityEngine.Random.value < 0.002f)
                             Capture($"run{i}_floor{gm.Floor}_lowfuel_{(int)gm.RunTime}");
-                        if (enemyShots < 3 && Time.unscaledTime > nextEnemyShot && EnemyInView(out var kind))
+                        if (gm.FloorEvent != FloorEventKind.None && shotEventFloor != gm.Floor && gm.FloorTime > 8f)
+                        {
+                            shotEventFloor = gm.Floor;
+                            Capture($"run{i}_floor{gm.Floor}_event_{gm.FloorEvent}");
+                        }
+                        if (Time.unscaledTime > nextEnemyShot && EnemyInView(out var kind) && (enemyShots < 3 || seenKinds.Add(kind)))
                         {
                             enemyShots++;
-                            nextEnemyShot = Time.unscaledTime + 20f;
+                            seenKinds.Add(kind);
+                            nextEnemyShot = Time.unscaledTime + 8f;
                             Capture($"run{i}_floor{gm.Floor}_enemy_{kind}");
                         }
                     }
@@ -183,10 +200,17 @@ namespace Lumen.Bot
             return false;
         }
 
-        void Capture(string name)
+        readonly HashSet<EnemyKind> seenKinds = new HashSet<EnemyKind>();
+
+        // ScreenCapture.CaptureScreenshot is deferred and can land a screen later; grab this frame instead.
+        void Capture(string name) => StartCoroutine(CaptureAtEndOfFrame(Path.Combine(outDir, name + ".png")));
+
+        static IEnumerator CaptureAtEndOfFrame(string path)
         {
-            string path = Path.Combine(outDir, name + ".png");
-            ScreenCapture.CaptureScreenshot(path);
+            yield return new WaitForEndOfFrame();
+            var tex = ScreenCapture.CaptureScreenshotAsTexture();
+            File.WriteAllBytes(path, tex.EncodeToPNG());
+            Destroy(tex);
         }
 
         void WriteReport(List<RunTelemetry.RunRecord> records)

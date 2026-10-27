@@ -149,7 +149,7 @@ namespace Lumen.EditorTools
         {
             PlayerSettings.companyName = "emiqia";
             PlayerSettings.productName = "LUMEN";
-            PlayerSettings.bundleVersion = "1.0.0";
+            PlayerSettings.bundleVersion = "1.1.0";
             PlayerSettings.fullScreenMode = FullScreenMode.FullScreenWindow;
             PlayerSettings.defaultScreenWidth = 1920;
             PlayerSettings.defaultScreenHeight = 1080;

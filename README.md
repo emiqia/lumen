@@ -2,7 +2,7 @@
 
 **Tu luz es tu vida, tu visión y tu reloj.**
 
-Roguelite de sigilo top-down hecho en **Unity 6 (URP 2D)**. Sos una pequeña llama viva en una mazmorra a oscuras, y ver más te hace más visible. Encendé todos los braseros para abrir la salida y bajá lo más profundo que puedas.
+Roguelite de sigilo top-down hecho en **Unity 6 (URP 2D)**. Eres una pequeña llama viva en una mazmorra a oscuras, y ver más te hace más visible. Enciende todos los braseros para abrir la salida y baja lo más profundo que puedas.
 
 ![Gameplay: un acechador te ve, destello y brasero encendido](docs/media/hero.gif)
 
@@ -10,9 +10,9 @@ Roguelite de sigilo top-down hecho en **Unity 6 (URP 2D)**. Sos una pequeña lla
 |---|---|
 | **Motor** | Unity 6000.0 LTS · URP 2D Renderer · C# |
 | **Plataformas** | Windows / Linux (escritorio) |
-| **Arte y audio** | 100% procedurales: sprites, normal maps, niveles y sonidos se generan por código al iniciar, sin assets importados |
-| **Partidas** | 3 a 10 minutos, reinicio instantáneo |
-| **Idiomas** | Español / English (tecla L en el título) |
+| **Arte y audio** | 100% procedurales: sprites, normal maps, niveles, efectos de sonido y música se generan por código al iniciar, sin assets importados |
+| **Partidas** | 3 a 15 minutos, reinicio instantáneo |
+| **Idiomas** | Español neutro / English (tecla L en el título) |
 
 ## Controles
 
@@ -22,26 +22,35 @@ Roguelite de sigilo top-down hecho en **Unity 6 (URP 2D)**. Sos una pequeña lla
 | Correr (gasta luz) | Shift | RT |
 | Atenuar (sigilo) | Ctrl | LT |
 | Destello | Espacio | A |
-| Usar señuelo | E | Y |
+| Usar objeto activo | E | Y |
+| Cambiar objeto activo | Q / Tab | LB / RB |
 | Pausa / menú | Esc | Start |
 
 ## Cómo se juega
 
 - **El combustible es todo:** vida, radio de luz y tiempo. Se consume solo, y más rápido con luz plena.
-- **Atenuar** te vuelve casi invisible y estira el combustible, pero te frena y no quemás a las sombras.
-- **Correr** te da velocidad (sirve para speedrun) a cambio de arder el triple y brillar más.
-- **El destello** quema todo lo que tengas cerca (radio 3.2) y aturde lo que esté más lejos (hasta 5.5). Cuesta 22 de luz.
-- **Los braseros** abren la salida y te recargan, pero cada uno tiene una reserva finita: acampar no es gratis.
-- **Tres enemigos:**
-  - **Acechador:** te ve más de lejos cuanto más brillás.
+- **Atenuar** te vuelve casi invisible y estira el combustible, pero te frena y no quemas a las sombras.
+- **Correr** te da velocidad a cambio de arder el triple y brillar más.
+- **El destello** quema todo lo que tengas cerca y aturde lo que esté más lejos. Cuesta luz.
+- **Los braseros** abren la salida y te recargan, pero cada uno tiene una reserva finita. En Hoguera y Ceniza no hay flechas que los señalen: hay que explorar.
+- **Siete sombras:**
+  - **Acechador:** te ve más de lejos cuanto más brillas.
   - **Polilla:** la atrae tu luz desde lejos.
-  - **Devorador:** inmune a la luz, apaga braseros y vuelve a sellar la salida. Se vence con 3 destellos, uno por vez; las marcas sobre su cabeza muestran cuándo se lo puede herir.
+  - **Devorador:** inmune a la luz, apaga braseros. Se vence con 3 destellos, uno por vez.
+  - **Mímico:** se hace pasar por una brasa hasta que te acercas.
+  - **Tejedora:** teje telarañas que te frenan y te drenan; el fuego las quema.
+  - **Vigía:** no se mueve, pero si ve tu luz da la alarma y atrae a los acechadores cercanos.
+  - **Guardián (jefe, cada 5 pisos):** sella la salida hasta que lo derrotas. Tiene tres fases: embiste, lanza ondas de sombra (atenuar te salva) e invoca acechadores.
 - **Cada partida se arma distinta:**
+  - **5 llamas jugables**, cada una con su habilidad y su personalidad: Lumen (equilibrada), Brasa (agresiva), Fuego fatuo (sigilo), Chispa (velocidad) y Rescoldo (resistencia).
   - **4 dificultades:** Vela, Antorcha, Hoguera y Ceniza, con récord por cada una.
-  - **Bendiciones:** al bajar de piso elegís 1 de 3.
-  - **Objetos en el mapa:** farol, aceite, señuelo y mapa.
-  - **Biomas cada 3 pisos:** criptas con rejas, cavernas inundadas y raíces con viento.
-- **Tutorial en forma de libro** ilustrado antes de la primera partida, y consejos contextuales mientras jugás.
+  - **Bendiciones:** al bajar de piso eliges 1 de 3 cartas.
+  - **Objetos:** farol, aceite, señuelo, mapa, llaves y cofres, más brújula, polvo de sombra, bomba de luz y botas de ceniza, que se desbloquean.
+  - **Eventos de piso:** Apagón, Lluvia de brasas y Marea.
+  - **Bonus de sigilo:** mientras nada te vea, el puntaje se multiplica (hasta x3).
+  - **Biomas cada 3 pisos:** criptas con rejas, cavernas inundadas y raíces con viento, cada uno con su propia música.
+- **Progresión entre partidas:** el puntaje se convierte en **Cenizas**. Con ellas compras preparativos antes de cada partida y desbloqueas llamas, objetos y bendiciones. También ganas Cenizas cumpliendo **desafíos**. Además hay un **desafío diario** con semilla fija y récord del día.
+- **Guía en forma de libro** ilustrado (con paso de página) antes de la primera partida, y consejos contextuales mientras juegas.
 
 | | |
 |---|---|
@@ -51,10 +60,11 @@ Roguelite de sigilo top-down hecho en **Unity 6 (URP 2D)**. Sos una pequeña lla
 
 - **Sombras reales que deciden el gameplay.** Los muros proyectan sombras con `ShadowCaster2D`, generadas en runtime a partir del mapa procedural (greedy meshing en rectángulos). La IA usa exactamente los mismos colliders para la línea de visión, así que si una sombra te tapa en pantalla, el enemigo tampoco te ve.
 - **Pipeline 100% procedural.** Generador de salas y pasillos (MST de Prim + loops extra), determinístico por semilla, con una semilla derivada por piso para que las runs completas se puedan reproducir. El nivel se hornea en una textura + **normal map** que `Light2D` usa para sombrear ladrillos y biseles. Los sprites, la fuente pixel y la síntesis de audio son código.
-- **Reglas en C# puro, testeables.** `FuelModel` (economía de combustible), `ScoreService` (eventos → puntaje), `DarknessSpawner` (presión anti-campeo) y `FloorSettings` (curva de dificultad) no dependen de la escena.
+- **Reglas en C# puro, testeables.** `FuelModel` (economía de combustible), `ScoreService` (eventos → puntaje), `DarknessSpawner` (presión anti-campeo), `FloorSettings` (curva de dificultad), `Meta` (Cenizas, desbloqueos, desafíos) y `WoundGate` (ventanas de daño de jefes) no dependen de la escena.
+- **Música procedural.** `Music` sintetiza una pista por lugar (título y cada bioma) con cuerdas Karplus-Strong, campanas y pads con reverberación, y hace crossfade al cambiar de bioma.
 - **Playtesting automatizado.** Un bot (`AutoPilot`) juega el build real a través de la misma interfaz `IPlayerInput` que el teclado. `-playtest N` corre N partidas a 8× y escribe telemetría (`report.json`: piso, causa de muerte, destellos, golpes por enemigo, etc.). Con `-shots` saca capturas y registra momentos destacados para cortar gifs. El mismo bot juega el *attract mode* del título.
-- **Tests:** 57 EditMode y 4 PlayMode.
-  - EditMode cubre el generador, A*, greedy meshing, combustible, puntaje, presión, curva de dificultad, dificultades, bendiciones, biomas e ítems.
+- **Tests:** 72 EditMode y 4 PlayMode.
+  - EditMode cubre el generador, A*, greedy meshing, combustible, puntaje, presión, curva de dificultad, dificultades, bendiciones, biomas, ítems, llamas, progresión (Cenizas, desbloqueos, desafíos), música y las sombras nuevas.
   - PlayMode incluye una prueba de humo, que arranca el juego real y exige que el bot complete el piso 1 sin errores, y regresiones del flujo de Game Over.
 
 ## Arquitectura
@@ -105,15 +115,16 @@ El detalle está en [`docs/GDD.md`](docs/GDD.md).
 ```
 Lumen/Assets/Lumen/
   Scripts/
-    Core/      GameManager, GameEvents, GameTuning, ScoreService, DarknessSpawner, Locale, SaveData
+    Core/      GameManager, GameEvents, GameTuning, ScoreService, DarknessSpawner, Locale, SaveData,
+               Character, Meta, Blessing, Difficulty, FloorEvents, RunState
     Level/     DungeonGenerator (+ FloorSettings), DungeonMap, GridPathfinder (A*), LevelBuilder
     Lighting/  LightField (línea de visión compartida), LightFactory, ShadowCasterCompat
     Player/    PlayerFlame, FuelModel, input (teclado/gamepad)
-    Enemies/   Shade (base), Stalker, Moth, Devourer
-    World/     Brazier, Ember, ExitPortal
+    Enemies/   Shade (base), Stalker, Moth, Devourer, Mimic, Weaver, Watcher, Guardian, WoundGate
+    World/     Brazier, Ember, ExitPortal, Chest, ItemPickup, Door, Web, WindGust, Lure, LevelHazards
     Art/       Palette, PixelCanvas, SpriteBank, LevelPainter (albedo + normal map)
-    FX/        CameraRig, PostFxController, PixelParticles, Sfx (síntesis), SpriteAnimator
-    UI/        Hud, Screens, TutorialDirector, MenuInput, PixelFont, PixelText
+    FX/        CameraRig, PostFxController, PixelParticles, Sfx y Music (síntesis), SpriteAnimator
+    UI/        Hud, FrontEnd, BookScreen + BookArt, BlessingScreen, TutorialDirector, MenuList, PixelFont, PixelText
     Bot/       AutoPilot, PlaytestRunner, RunTelemetry
   Editor/      LumenSetup (capas, assets, escena y builds en un click o por CLI)
   Tests/       EditMode + PlayMode
@@ -122,7 +133,7 @@ docs/GDD.md    documento de diseño
 
 ## Compilar y probar
 
-Abrí `Lumen/` con Unity 6000.0.x y usá el menú **Lumen → Setup Project**, después **Lumen → Build**. Por línea de comandos:
+Abre `Lumen/` con Unity 6000.0.x y usa el menú **Lumen → Setup Project**, después **Lumen → Build**. Por línea de comandos:
 
 ```bash
 # Setup + builds de Linux y Windows
@@ -138,6 +149,7 @@ Lumen/Builds/Linux/Lumen.x86_64 -batchmode -nographics -playtest 20 -playtestOut
 
 ## Pendientes conocidos
 
+- El bot no busca llaves ni abre cofres, así que la telemetría no mide esa parte de la economía.
 - El bot casi no usa el sigilo: su heurística de atenuar es simple, así que la telemetría de "tiempo atenuado" subestima el uso humano.
 - La UI, la cámara y el post-procesado se construyen por código (ver "¿Por qué la escena está vacía?").
 - El input del juego usa dispositivos directos del Input System, no un `InputActionAsset`, así que no se pueden remapear los controles.

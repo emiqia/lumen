@@ -24,7 +24,8 @@ namespace Lumen.UI
         RectTransform root;
         Camera cam;
         Canvas canvas;
-        Image fuelFill, fuelBack, flareFill, hintBand;
+        Image fuelFill, fuelBack, flareFill, hintBand, fuelPanel;
+        const float PanelShort = 18f, PanelTall = 32f; // the panel only grows when there is a state label to cover
         readonly List<Image> arrows = new List<Image>();     // pooled objective markers
         readonly List<Transform> arrowTargets = new List<Transform>();
         Image lanternIcon, oilIcon, lureIcon, keyIcon;
@@ -67,7 +68,7 @@ namespace Lumen.UI
 
             // Fuel gauge (top-left): flame icon, bar with quarter ticks, state label underneath.
             // The panel also covers the state label underneath, so it never sits on top of the world.
-            Ui.Box(root, Ui.TopLeft, new Vector2(6, -6), new Vector2(FuelBarWidth + 26, 32), Palette.UiPanel);
+            fuelPanel = Ui.Box(root, Ui.TopLeft, new Vector2(6, -6), new Vector2(FuelBarWidth + 26, PanelShort), Palette.UiPanel);
             Ui.Text(root, "#", Ui.TopLeft, new Vector2(9, -9), 1, PixelText.Align.Left, Palette.FireOrange, 8);
             fuelBack = Ui.Box(root, Ui.TopLeft, new Vector2(18, -10), new Vector2(FuelBarWidth, FuelBarHeight), new Color(0.12f, 0.08f, 0.1f));
             fuelFill = Ui.Box(root, Ui.TopLeft, new Vector2(18, -10), new Vector2(FuelBarWidth, FuelBarHeight), Palette.FireYellow);
@@ -248,6 +249,7 @@ namespace Lumen.UI
             {
                 shownFuelLabel = label;
                 fuelLabel.Text = label;
+                fuelPanel.rectTransform.sizeDelta = new Vector2(fuelPanel.rectTransform.sizeDelta.x, label == "" ? PanelShort : PanelTall);
                 // Dimmed is a protective state the player chose: cool "stealth" blue, not disabled grey.
                 fuelLabel.color = player.IsRefueling ? Palette.FireYellow : player.IsDimmed ? (Color)Palette.Stealth : Palette.FireOrange;
             }

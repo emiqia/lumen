@@ -83,28 +83,28 @@ namespace Lumen.Bot
                 // Front end: title (with the attract demo behind), difficulty, options and the book.
                 gm.EnterTitle();
                 yield return new WaitForSecondsRealtime(5f);
-                Capture("title");
+                yield return Shot("title");
                 gm.FrontEnd.ShowDifficulty();
                 yield return new WaitForSecondsRealtime(0.5f);
-                Capture("menu_difficulty");
+                yield return Shot("menu_difficulty");
                 gm.FrontEnd.ShowOptions();
                 yield return new WaitForSecondsRealtime(0.5f);
-                Capture("menu_options");
+                yield return Shot("menu_options");
                 foreach (var mode in new[] { FrontEnd.Mode.Characters, FrontEnd.Mode.Provisions, FrontEnd.Mode.Unlocks, FrontEnd.Mode.Challenges })
                 {
                     gm.FrontEnd.ShowScreen(mode);
                     yield return new WaitForSecondsRealtime(0.6f);
-                    Capture("menu_" + mode.ToString().ToLowerInvariant());
+                    yield return Shot("menu_" + mode.ToString().ToLowerInvariant());
                 }
                 gm.FrontEnd.ShowTitle();
                 gm.Book.Open(beforeRun: false);
                 yield return new WaitForSecondsRealtime(0.12f);
-                Capture("book_opening");
+                yield return Shot("book_opening");
                 foreach (int page in new[] { 1, 2, 7, 10, 11, 12 })
                 {
                     gm.Book.GoToPage(page);
                     yield return new WaitForSecondsRealtime(0.5f);
-                    Capture("book_page" + page);
+                    yield return Shot("book_page" + page);
                 }
                 gm.Book.CloseSilently();
                 yield return null;
@@ -203,6 +203,9 @@ namespace Lumen.Bot
         readonly HashSet<EnemyKind> seenKinds = new HashSet<EnemyKind>();
 
         // ScreenCapture.CaptureScreenshot is deferred and can land a screen later; grab this frame instead.
+        /// <summary>Waits until this frame is captured, so the next state change can't leak into it.</summary>
+        IEnumerator Shot(string name) => CaptureAtEndOfFrame(Path.Combine(outDir, name + ".png"));
+
         void Capture(string name) => StartCoroutine(CaptureAtEndOfFrame(Path.Combine(outDir, name + ".png")));
 
         static IEnumerator CaptureAtEndOfFrame(string path)

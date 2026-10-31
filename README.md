@@ -4,7 +4,9 @@
 
 Roguelite de sigilo top-down hecho en **Unity 6 (URP 2D)**. Eres una pequeña llama viva en una mazmorra a oscuras, y ver más te hace más visible. Enciende todos los braseros para abrir la salida y baja lo más profundo que puedas.
 
-![Gameplay: un acechador te ve, destello y brasero encendido](docs/media/hero.gif)
+![Gameplay: piso 4, vigía y acechadores en la oscuridad](docs/media/hero.gif)
+
+**[Descargar para Windows o Linux](https://github.com/emiqia/lumen/releases/latest)** · solo hay que descomprimir y ejecutar `Lumen.exe` (Windows) o `Lumen.x86_64` (Linux).
 
 | | |
 |---|---|
@@ -54,7 +56,11 @@ Roguelite de sigilo top-down hecho en **Unity 6 (URP 2D)**. Eres una pequeña ll
 
 | | |
 |---|---|
-| ![Devorador drenando un brasero](docs/media/devourer.gif) | ![Salida abierta](docs/media/exit.gif) |
+| ![El Guardián despierta y cae tras cuatro destellos](docs/media/guardian.gif) | ![Bendiciones: las cartas se reparten y se dan vuelta](docs/media/blessing.gif) |
+| ![Devorador apagando braseros](docs/media/devourer.gif) | ![Guía ilustrada con paso de página](docs/media/book.gif) |
+| ![Evento de piso: Apagón](docs/media/blackout.gif) | ![Salida abierta](docs/media/exit.gif) |
+| ![Título](docs/media/title.png) | ![Elegir llama](docs/media/characters.png) |
+| ![Desbloqueos con Cenizas](docs/media/unlocks.png) | ![Página del libro: el Devorador](docs/media/book.png) |
 
 ## Lo técnicamente interesante
 
@@ -63,7 +69,7 @@ Roguelite de sigilo top-down hecho en **Unity 6 (URP 2D)**. Eres una pequeña ll
 - **Reglas en C# puro, testeables.** `FuelModel` (economía de combustible), `ScoreService` (eventos → puntaje), `DarknessSpawner` (presión anti-campeo), `FloorSettings` (curva de dificultad), `Meta` (Cenizas, desbloqueos, desafíos) y `WoundGate` (ventanas de daño de jefes) no dependen de la escena.
 - **Música procedural.** `Music` sintetiza una pista por lugar (título y cada bioma) con cuerdas Karplus-Strong, campanas y pads con reverberación, y hace crossfade al cambiar de bioma.
 - **Playtesting automatizado.** Un bot (`AutoPilot`) juega el build real a través de la misma interfaz `IPlayerInput` que el teclado. `-playtest N` corre N partidas a 8× y escribe telemetría (`report.json`: piso, causa de muerte, destellos, golpes por enemigo, etc.). Con `-shots` saca capturas y registra momentos destacados para cortar gifs. El mismo bot juega el *attract mode* del título.
-- **Tests:** 72 EditMode y 4 PlayMode.
+- **Tests:** 74 EditMode y 4 PlayMode.
   - EditMode cubre el generador, A*, greedy meshing, combustible, puntaje, presión, curva de dificultad, dificultades, bendiciones, biomas, ítems, llamas, progresión (Cenizas, desbloqueos, desafíos), música y las sombras nuevas.
   - PlayMode incluye una prueba de humo, que arranca el juego real y exige que el bot complete el piso 1 sin errores, y regresiones del flujo de Game Over.
 
@@ -92,18 +98,14 @@ La única escena tiene un `GameManager`, y todo lo demás se construye por códi
 
 ## Proceso: telemetría y rondas de revisión
 
-El juego se iteró con **cuatro rondas de revisión**, cada una con un criterio y un nivel de exigencia distintos:
-- una jugadora casual;
-- un jugador hardcore de roguelikes;
-- una lead programmer que evalúa portafolios;
-- un crítico de arte y UX.
-
-Revisan capturas reales del build, la telemetría del bot, el GDD y el código. Sus hallazgos se priorizaron y se aplicaron. Algunos ejemplos de la iteración 1 → 2:
+El juego se iteró en cinco vueltas. En cada una, el bot jugaba decenas de partidas, y con sus capturas, su telemetría, el GDD y el código se hacían cuatro revisiones con criterios distintos: un jugador casual, un jugador exigente de roguelikes, un *lead programmer* que evalúa portafolios y una mirada de arte y UX. Los hallazgos se priorizaban y se aplicaban. Algunos ejemplos:
 
 | Hallazgo | Evidencia | Cambio |
 |---|---|---|
 | Disparar destellos parado en un brasero *daba* combustible (+5.6/s) | `report.json`: 1242 destellos contra 19 golpes recibidos en 10 runs | Braseros con reserva finita; destello más caro y con recarga más larga |
 | La dificultad dejaba de subir en el piso 9 | El bot llegaba al timeout de 15 min en 4 de 10 runs (piso promedio 12) | Curva que sigue subiendo (más enemigos y velocidad); el bot ahora promedia piso 6 sin timeouts |
+| Las bendiciones compradas nunca salían entre pisos | Lectura de código, luego un test de regresión | `RunState.OfferBlessings` usa los desbloqueos (salvo en el desafío diario) |
+| El Devorador causaba casi la mitad de las muertes | Telemetría: 4 de 10 muertes, 30 golpes | Menos inmunidad entre heridas; no aparece en el piso del Guardián |
 | Los braseros apagados parecían yunques | Capturas | Trípode con brasas que laten y flecha al objetivo fuera de pantalla |
 | El destello se podía disparar en pausa | Lectura de código | `Controllable = false` al pausar |
 | Las texturas del nivel nunca se liberaban | Lectura de código | `LevelInstance : IDisposable` |
@@ -153,3 +155,7 @@ Lumen/Builds/Linux/Lumen.x86_64 -batchmode -nographics -playtest 20 -playtestOut
 - El bot casi no usa el sigilo: su heurística de atenuar es simple, así que la telemetría de "tiempo atenuado" subestima el uso humano.
 - La UI, la cámara y el post-procesado se construyen por código (ver "¿Por qué la escena está vacía?").
 - El input del juego usa dispositivos directos del Input System, no un `InputActionAsset`, así que no se pueden remapear los controles.
+
+## Licencia
+
+© 2026 Emilia Toro González. Todos los derechos reservados. El código y el arte se publican solo para que se puedan ver y evaluar; no se pueden copiar, modificar ni redistribuir sin permiso. Ver [`LICENSE`](LICENSE).

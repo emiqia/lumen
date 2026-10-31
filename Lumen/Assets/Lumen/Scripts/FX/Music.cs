@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Lumen.Core;
 using Lumen.Level;
 using UnityEngine;
@@ -7,8 +8,10 @@ namespace Lumen.FX
 {
     /// <summary>
     /// Procedural background music: one seamless ~27 s loop per place (title + each biome),
-    /// synthesized on first use from a chord progression, a scale and an instrument palette.
+    /// synthesized from a chord progression, a scale and an instrument palette.
     /// Pads, bass, a wandering melody and a circular reverb (so the loop has no seam).
+    /// Every track is rendered on worker threads at boot, so entering a biome never stalls a
+    /// frame; only the AudioClip is created on the main thread, once its samples are ready.
     /// Crossfades when the place changes.
     /// </summary>
     public class Music : MonoBehaviour
@@ -23,9 +26,11 @@ namespace Lumen.FX
         public static Music I { get; private set; }
 
         readonly Dictionary<Track, AudioClip> clips = new Dictionary<Track, AudioClip>();
+        readonly Dictionary<Track, Task<float[]>> rendering = new Dictionary<Track, Task<float[]>>();
         AudioSource a, b;
         AudioSource current;
         Track? playing;
+        Track? pending; // requested before its samples were ready; starts as soon as they are
         float fade = 1f;
 
         void Awake()
@@ -35,6 +40,8 @@ namespace Lumen.FX
             b = gameObject.AddComponent<AudioSource>();
             foreach (var s in new[] { a, b }) { s.loop = true; s.playOnAwake = false; s.volume = 0f; }
             current = a;
+            foreach (Track t in System.Enum.GetValues(typeof(Track)))
+                rendering[t] = Task.Run(() => Render(t));
         }
 
         public static Track ForBiome(Biome biome) => biome switch
@@ -44,13 +51,25 @@ namespace Lumen.FX
             _ => Track.Crypts,
         };
 
-        /// <summary>Switches to a track with a short crossfade (no-op if it is already playing).</summary>
+        /// <summary>
+        /// Switches to a track with a short crossfade (no-op if it is already playing). If the track
+        /// is still rendering, the current one keeps playing until it is ready.
+        /// </summary>
         public void Play(Track track)
         {
             if (playing == track) return;
             playing = track;
+            pending = track;
+            StartPending();
+        }
+
+        void StartPending()
+        {
+            var clip = pending.HasValue ? TryGetClip(pending.Value) : null;
+            if (clip == null) return;
+            pending = null;
             var next = current == a ? b : a;
-            next.clip = Get(track);
+            next.clip = clip;
             next.volume = 0f;
             next.Play();
             current = next;
@@ -59,6 +78,7 @@ namespace Lumen.FX
 
         void Update()
         {
+            if (pending.HasValue) StartPending();
             float target = Gain * SaveData.MusicVolume;
             fade = Mathf.MoveTowards(fade, 1f, Time.unscaledDeltaTime / 2.5f);
             var other = current == a ? b : a;
@@ -67,13 +87,16 @@ namespace Lumen.FX
             if (fade >= 1f && other.isPlaying) other.Stop();
         }
 
-        AudioClip Get(Track track)
+        /// <summary>The track's clip, or null while its samples are still being rendered.</summary>
+        AudioClip TryGetClip(Track track)
         {
-            if (!clips.TryGetValue(track, out var clip))
-            {
-                clip = Compose(track);
-                clips[track] = clip;
-            }
+            if (clips.TryGetValue(track, out var clip)) return clip;
+            var task = rendering[track];
+            if (!task.IsCompleted) return null;
+            float[] samples = task.IsFaulted ? Render(track) : task.Result; // a failed worker falls back to the main thread
+            clip = AudioClip.Create("music_" + track, samples.Length, 1, Rate, false);
+            clip.SetData(samples, 0);
+            clips[track] = clip;
             return clip;
         }
 
@@ -119,15 +142,10 @@ namespace Lumen.FX
 
         static float Hz(int midi) => 440f * Mathf.Pow(2f, (midi - 69) / 12f);
 
-        static AudioClip Compose(Track track)
-        {
-            var buf = Render(track);
-            var clip = AudioClip.Create("music_" + track, buf.Length, 1, Rate, false);
-            clip.SetData(buf, 0);
-            return clip;
-        }
-
-        /// <summary>Synthesizes a track's samples (mono, 22050 Hz). Public so tests can check the audio.</summary>
+        /// <summary>
+        /// Synthesizes a track's samples (mono, 22050 Hz). Pure math with no engine calls, so it is
+        /// safe on worker threads. Public so tests can check the audio.
+        /// </summary>
         public static float[] Render(Track track)
         {
             var style = StyleFor(track);

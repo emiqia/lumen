@@ -66,11 +66,11 @@ Roguelite de sigilo top-down hecho en **Unity 6 (URP 2D)**. Eres una pequeña ll
 
 - **Sombras reales que deciden el gameplay.** Los muros proyectan sombras con `ShadowCaster2D`, generadas en runtime a partir del mapa procedural (greedy meshing en rectángulos). La IA usa exactamente los mismos colliders para la línea de visión, así que si una sombra te tapa en pantalla, el enemigo tampoco te ve.
 - **Pipeline 100% procedural.** Generador de salas y pasillos (MST de Prim + loops extra), determinístico por semilla, con una semilla derivada por piso para que las runs completas se puedan reproducir. El nivel se hornea en una textura + **normal map** que `Light2D` usa para sombrear ladrillos y biseles. Los sprites, la fuente pixel y la síntesis de audio son código.
-- **Reglas en C# puro, testeables.** `FuelModel` (economía de combustible), `ScoreService` (eventos → puntaje), `DarknessSpawner` (presión anti-campeo), `FloorSettings` (curva de dificultad), `Meta` (Cenizas, desbloqueos, desafíos) y `WoundGate` (ventanas de daño de jefes) no dependen de la escena.
-- **Música procedural.** `Music` sintetiza una pista por lugar (título y cada bioma) con cuerdas Karplus-Strong, campanas y pads con reverberación, y hace crossfade al cambiar de bioma.
+- **Reglas en C# puro, testeables.** `FuelModel` (economía de combustible), `ScoreService` (eventos → puntaje), `StealthTracker` (bonus de sigilo), `RunState` (inventario y bendiciones), `RunRewards` (cofres, jefe y cierre de partida), `DarknessSpawner` (presión anti-campeo), `FloorSettings` (curva de dificultad), `Meta` (Cenizas, desbloqueos, desafíos) y `WoundGate` (ventanas de daño de jefes) no dependen de la escena. El azar y los desbloqueos se inyectan, así que los tests no necesitan escena ni partida guardada.
+- **Música procedural.** `Music` sintetiza una pista por lugar (título y cada bioma) con cuerdas Karplus-Strong, campanas y pads con reverberación, y hace crossfade al cambiar de bioma. Las cuatro pistas se sintetizan en hilos de trabajo al arrancar (`Task.Run`), así que entrar a un bioma nuevo nunca congela un frame; solo el `AudioClip` se crea en el hilo principal.
 - **Playtesting automatizado.** Un bot (`AutoPilot`) juega el build real a través de la misma interfaz `IPlayerInput` que el teclado. `-playtest N` corre N partidas a 8× y escribe telemetría (`report.json`: piso, causa de muerte, destellos, golpes por enemigo, etc.). Con `-shots` saca capturas y registra momentos destacados para cortar gifs. El mismo bot juega el *attract mode* del título.
-- **Tests:** 74 EditMode y 4 PlayMode.
-  - EditMode cubre el generador, A*, greedy meshing, combustible, puntaje, presión, curva de dificultad, dificultades, bendiciones, biomas, ítems, llamas, progresión (Cenizas, desbloqueos, desafíos), música y las sombras nuevas.
+- **Tests:** 82 EditMode y 4 PlayMode.
+  - EditMode cubre el generador, A*, greedy meshing, combustible, puntaje, presión, curva de dificultad, dificultades, bendiciones, biomas, ítems, llamas, progresión (Cenizas, desbloqueos, desafíos), inventario, cofres, recompensa del jefe, bonus de sigilo, música (incluida su síntesis en otros hilos) y las sombras nuevas.
   - PlayMode incluye una prueba de humo, que arranca el juego real y exige que el bot complete el piso 1 sin errores, y regresiones del flujo de Game Over.
 
 ## Arquitectura
@@ -78,16 +78,16 @@ Roguelite de sigilo top-down hecho en **Unity 6 (URP 2D)**. Eres una pequeña ll
 ```mermaid
 flowchart LR
     GM[GameManager<br/>composition root + flujo] --> LB[LevelBuilder]
-    GM --> SYS[ScoreService · DarknessSpawner<br/>TutorialDirector · PostFxController]
+    GM --> SYS[ScoreService · StealthTracker · DarknessSpawner<br/>RunState · RunRewards · PostFxController]
     LB --> ACT[Actores<br/>PlayerFlame · Shade · Brazier · Ember · ExitPortal]
     ACT -- eventos --> EV((GameEvents))
     EV --> SYS
-    EV --> FX[Sfx · Hud · RunTelemetry]
+    EV --> FX[Sfx · HudAnnouncer · TutorialDirector · RunTelemetry]
     EV --> GM
     ACT -. consultas de luz .-> LF[LightField<br/>línea de visión compartida]
 ```
 
-- **`GameManager`** arma la escena (cámara, post-procesado, audio, UI) y maneja el flujo *Título → Jugando ⇄ Pausa → Game Over*. No contiene reglas de juego.
+- **`GameManager`** arma la escena (cámara, post-procesado, audio, UI) y maneja el flujo *Título → Jugando ⇄ Pausa → Game Over*. No contiene reglas de juego: el inventario vive en `RunState`, las recompensas en `RunRewards`, el sigilo en `StealthTracker` y los carteles del HUD en `HudAnnouncer`.
 - **Los actores no se conocen entre sí.** Levantan eventos (`BrazierLit`, `EnemyKilled`, `PlayerReachedExit`…) y los sistemas reaccionan: el puntaje, el audio, la telemetría y el HUD se enganchan sin que el gameplay los referencie.
 - **Un solo patrón de factory:** `Create()` arma la jerarquía, agrega el componente y le pasa sus referencias con `Init/Setup`. `Awake` solo cachea componentes propios.
 - **Todos los números de gameplay** están en el ScriptableObject `GameTuning`. La curva por piso está en `FloorSettings.ForFloor`.
@@ -117,8 +117,8 @@ El detalle está en [`docs/GDD.md`](docs/GDD.md).
 ```
 Lumen/Assets/Lumen/
   Scripts/
-    Core/      GameManager, GameEvents, GameTuning, ScoreService, DarknessSpawner, Locale, SaveData,
-               Character, Meta, Blessing, Difficulty, FloorEvents, RunState
+    Core/      GameManager, GameEvents, GameTuning, ScoreService, StealthTracker, DarknessSpawner, Locale,
+               SaveData, Character, Meta, Blessing, Difficulty, FloorEvents, RunState, RunRewards
     Level/     DungeonGenerator (+ FloorSettings), DungeonMap, GridPathfinder (A*), LevelBuilder
     Lighting/  LightField (línea de visión compartida), LightFactory, ShadowCasterCompat
     Player/    PlayerFlame, FuelModel, input (teclado/gamepad)
@@ -126,7 +126,7 @@ Lumen/Assets/Lumen/
     World/     Brazier, Ember, ExitPortal, Chest, ItemPickup, Door, Web, WindGust, Lure, LevelHazards
     Art/       Palette, PixelCanvas, SpriteBank, LevelPainter (albedo + normal map)
     FX/        CameraRig, PostFxController, PixelParticles, Sfx y Music (síntesis), SpriteAnimator
-    UI/        Hud, FrontEnd, BookScreen + BookArt, BlessingScreen, TutorialDirector, MenuList, PixelFont, PixelText
+    UI/        Hud, HudAnnouncer, FrontEnd, BookScreen + BookArt, BlessingScreen, TutorialDirector, MenuList, PixelFont, PixelText
     Bot/       AutoPilot, PlaytestRunner, RunTelemetry
   Editor/      LumenSetup (capas, assets, escena y builds en un click o por CLI)
   Tests/       EditMode + PlayMode

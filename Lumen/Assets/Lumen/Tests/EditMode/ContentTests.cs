@@ -205,6 +205,18 @@ namespace Lumen.Tests
                 Assert.Greater(s.Length / 22050f, 20f, track + " is too short to loop pleasantly");
             }
         }
+
+        [Test]
+        public void Render_OnWorkerThreads_MatchesTheMainThread()
+        {
+            var track = Lumen.FX.Music.Track.Roots; // the plucked one uses its own random stream
+            var expected = Lumen.FX.Music.Render(track);
+            var workers = new System.Threading.Tasks.Task<float[]>[3];
+            for (int i = 0; i < workers.Length; i++)
+                workers[i] = System.Threading.Tasks.Task.Run(() => Lumen.FX.Music.Render(track));
+            System.Threading.Tasks.Task.WaitAll(workers);
+            foreach (var w in workers) CollectionAssert.AreEqual(expected, w.Result);
+        }
     }
 }
 

@@ -18,8 +18,9 @@ namespace Lumen.Core
     /// Composition root and game-flow state machine. The scene contains only this component:
     /// it builds the camera, post-processing, audio and UI, then owns the
     /// Title → Playing ⇄ Paused → GameOver flow. Game rules live in the systems it wires up
-    /// (ScoreService, DarknessSpawner, TutorialDirector, PostFxController) and in the actors,
-    /// which talk back through <see cref="GameEvents"/>.
+    /// (ScoreService, StealthTracker, DarknessSpawner, RunState, RunRewards) and in the actors,
+    /// which talk back through <see cref="GameEvents"/>; HudAnnouncer and TutorialDirector
+    /// turn those events into UI.
     /// </summary>
     public class GameManager : MonoBehaviour
     {
@@ -63,15 +64,13 @@ namespace Lumen.Core
         ScoreService score;
         DarknessSpawner darkness;
         TutorialDirector tutorial;
+        HudAnnouncer announcer;
+        readonly StealthTracker stealth = new StealthTracker();
         LevelInstance level;
         PlayerFlame player;
         int runSeed;
-        int cenizasBonus;     // extra Cenizas found in chests this run
-        bool seenThisFloor;   // for the "ghost" challenge: did any stalker spot you on this floor?
-        float unseenTime;     // stealth bonus clock
         FloorEventKind floorEvent;
         public FloorEventKind FloorEvent => floorEvent;
-        public const float StealthStep = 10f, StealthMax = 3f;
         int flowVersion;       // bumped on every run start / title entry, so stale coroutines can tell
         bool gameOverShown;    // game-over input is ignored until the screen is actually up
         static float hitStopUntil;
@@ -120,23 +119,16 @@ namespace Lumen.Core
             score = new ScoreService(Tuning);
             darkness = new DarknessSpawner(Tuning);
             tutorial = new TutorialDirector(hud);
+            announcer = new HudAnnouncer(hud, () => Current == State.Playing);
 
             GameEvents.PlayerDied += OnPlayerDied;
-            GameEvents.ScoreGained += (amount, pos) => hud.ScorePopup(pos, amount);
             GameEvents.BrazierLit += _ => RecountBraziers();
-            GameEvents.BrazierExtinguished += _ =>
-            {
-                RecountBraziers();
-                if (Current == State.Playing) hud.Announce("", Locale.Get("hud.relit"), 2f);
-            };
+            GameEvents.BrazierExtinguished += _ => RecountBraziers();
             GameEvents.PlayerReachedExit += CompleteFloor;
-            GameEvents.ItemCollected += (_, kind) => hud.Announce("", Locale.Get("item." + kind), 1.6f);
-            GameEvents.PlayerRevived += _ => hud.Announce(Locale.Get("hud.revived"), "", 2f, Palette.FireYellow);
-            GameEvents.StalkerAlerted += _ => { if (Current == State.Playing) { seenThisFloor = true; BreakStealth(); } };
+            GameEvents.StalkerAlerted += _ => { if (Current == State.Playing) { stealth.Spotted(); score.Multiplier = 1f; } };
             GameEvents.WatcherAlarm += _ => BreakStealth();
             GameEvents.PlayerHit += (_, __, ___) => BreakStealth();
-            GameEvents.BlackoutWarning += () => { if (Current == State.Playing) hud.Announce(Locale.Get("event.Blackout.warn"), "", 2f, Palette.UiDanger); };
-            GameEvents.GuardianAwoke += _ => { BreakStealth(); if (Current == State.Playing) hud.Announce(Locale.Get("boss.awake"), Locale.Get("boss.awake.sub"), 2.6f, Palette.UiDanger); };
+            GameEvents.GuardianAwoke += _ => BreakStealth();
             GameEvents.EnemyKilled += (_, kind, __) => { if (kind == EnemyKind.Guardian) OnGuardianDefeated(); };
         }
 
@@ -154,14 +146,14 @@ namespace Lumen.Core
         {
             yield return new WaitForSeconds(3.4f);
             if (Current != State.Playing || Floor != forFloor) yield break;
-            string desc = Locale.Get(FloorEvents.DescKey(kind));
-            hud.Announce(Locale.Get(FloorEvents.NameKey(kind)), char.ToUpper(desc[0]) + desc.Substring(1), 3f, Palette.UiDanger);
+            announcer.FloorEvent(kind);
         }
 
         void OnDestroy()
         {
             score?.Dispose();
             tutorial?.Dispose();
+            announcer?.Dispose();
             level?.Dispose();
             run?.Dispose();
             GameTuning.Active = null;
@@ -236,7 +228,6 @@ namespace Lumen.Core
                 var first = run.OfferBlessings(runSeed, 1);
                 if (first.Count > 0) run.Take(first[0]);
             }
-            cenizasBonus = 0;
             GameTuning.Active = run.Tuning;   // every system now reads the difficulty-adjusted numbers
             darkness.Tuning = run.Tuning;
             frontEnd.Hide();
@@ -297,100 +288,47 @@ namespace Lumen.Core
         bool TryCollect(ItemKind kind)
         {
             if (run == null || Current != State.Playing) return false;
-            switch (kind)
+            if (kind == ItemKind.Map)
             {
-                case ItemKind.Lantern:
-                    if (run.Lantern) return Full();
-                    run.Lantern = true;
-                    return true;
-                case ItemKind.Oil:
-                    if (run.Oil >= RunState.MaxOil) return Full();
-                    run.Oil++;
-                    return true;
-                case ItemKind.Lure:
-                    if (run.Lures >= RunState.MaxLures) return Full();
-                    run.Lures++;
-                    return true;
-                case ItemKind.ShadowDust:
-                    if (run.ShadowDust >= RunState.MaxActive) return Full();
-                    run.ShadowDust++;
-                    return true;
-                case ItemKind.LightBomb:
-                    if (run.LightBombs >= RunState.MaxActive) return Full();
-                    run.LightBombs++;
-                    return true;
-                case ItemKind.Key:
-                    run.Keys = true;
-                    return true;
-                case ItemKind.Compass:
-                    run.Compass = true;
-                    return true;
-                case ItemKind.AshBoots:
-                    if (run.AshBoots) return Full();
-                    run.AshBoots = true;
-                    return true;
-                default:
-                    hud.RevealAllBraziers = true;
-                    hud.Hint(Locale.Get("item.map.used"), 3f);
-                    return true;
+                hud.RevealAllBraziers = true;
+                hud.Hint(Locale.Get("item.map.used"), 3f);
+                return true;
             }
+            if (run.TryCarry(kind)) return true;
+            hud.Hint(Locale.Get("item.full"), 1.5f);
+            return false;
         }
 
+        /// <summary>Something noticed you: the stealth bonus drops to x1 right away.</summary>
         void BreakStealth()
         {
-            unseenTime = 0f;
+            stealth.Break();
             score.Multiplier = 1f;
         }
 
-        /// <summary>Boss reward: Cenizas, a free blessing, and the exit can now open.</summary>
         void OnGuardianDefeated()
         {
             if (Current != State.Playing || run == null) return;
-            cenizasBonus += run.Tuning.guardianCenizas;
+            var reward = RunRewards.DefeatGuardian(run, runSeed * 17 + Floor);
             if (Telemetry.Current != null) Telemetry.Current.guardiansKilled++;
-            var gift = run.OfferBlessings(runSeed * 17 + Floor, 1);
-            string sub = "+" + run.Tuning.guardianCenizas + " " + Locale.Get("meta.cenizas");
-            if (gift.Count > 0)
+            string sub = "+" + reward.Cenizas + " " + Locale.Get("meta.cenizas");
+            if (reward.Gift != null)
             {
-                run.Take(gift[0]);
-                Telemetry.OnBlessing(gift[0].Id);
-                sub += "   " + Locale.Get(gift[0].NameKey);
+                Telemetry.OnBlessing(reward.Gift.Id);
+                sub += "   " + Locale.Get(reward.Gift.NameKey);
             }
             hud.Announce(Locale.Get("boss.defeated"), sub, 3f, Palette.FireYellow);
-            RecountBraziers();
+            RecountBraziers(); // the exit can open now
         }
 
-        /// <summary>Opens this floor's chest if the run carries its key: a rare item and some Cenizas.</summary>
+        /// <summary>Opens this floor's chest if the run carries its key.</summary>
         bool TryOpenChest(Vector2 at)
         {
             if (run == null || !run.Keys) { hud.Hint(Locale.Get("chest.locked"), 1.5f); return false; }
-            run.Keys = false;
-            var rewards = new List<ItemKind> { ItemKind.Lantern, ItemKind.Oil };
-            foreach (var k in new[] { ItemKind.LightBomb, ItemKind.ShadowDust, ItemKind.Compass })
-                if (Meta.IsUnlocked(k.ToString())) rewards.Add(k);
-            var reward = rewards[Random.Range(0, rewards.Count)];
-            if (!TryCollect(reward)) run.Oil = Mathf.Min(run.Oil + 1, RunState.MaxOil);
-            int cenizas = Random.Range(50, 81);
-            cenizasBonus += cenizas;
+            var loot = RunRewards.OpenChest(run, Random.Range, Meta.IsUnlocked);
             if (Telemetry.Current != null) Telemetry.Current.chestsOpened++;
-            hud.Announce("", Locale.Get("item." + reward) + "   +" + cenizas + " " + Locale.Get("meta.cenizas"), 2.2f);
+            hud.Announce("", Locale.Get("item." + loot.Item) + "   +" + loot.Cenizas + " " + Locale.Get("meta.cenizas"), 2.2f);
             return true;
-        }
-
-        /// <summary>Base items plus the ones unlocked with Cenizas (the daily run uses only the base set).</summary>
-        ItemKind[] ItemPool()
-        {
-            var pool = new List<ItemKind>(FloorSettings.BaseItems);
-            if (run != null && !run.Daily)
-                foreach (var k in new[] { ItemKind.Compass, ItemKind.ShadowDust, ItemKind.LightBomb, ItemKind.AshBoots })
-                    if (Meta.IsUnlocked(k.ToString())) pool.Add(k);
-            return pool.ToArray();
-        }
-
-        bool Full()
-        {
-            hud.Hint(Locale.Get("item.full"), 1.5f);
-            return false;
         }
 
         void LoadFloor(int floor, int seed, System.Func<IPlayerInput> input)
@@ -401,20 +339,15 @@ namespace Lumen.Core
             darkness.Reset();
 
             var settings = FloorSettings.ForFloor(floor);
-            settings.ItemPool = ItemPool();
+            settings.ItemPool = RunRewards.ItemPool(run, Meta.IsUnlocked);
             var map = DungeonGenerator.Generate(seed, settings);
             level = LevelBuilder.Build(map, settings, seed, transform);
             player = PlayerFlame.Create(DungeonMap.CellToWorld(map.PlayerSpawn), run?.Character);
-            seenThisFloor = false;
-            BreakStealth();
+            stealth.BeginFloor();
+            score.Multiplier = 1f;
             floorEvent = run != null ? FloorEvents.Pick(floor, seed) : FloorEventKind.None; // the attract demo stays plain
             if (floorEvent != FloorEventKind.None) FloorEventDirector.Create(level.Root.transform, level, floorEvent);
-            if (run != null)
-            {
-                run.Keys = false;
-                run.Compass = false;
-                if (run.Tuning.lanternEachFloor) run.Lantern = true; // Rescoldo: a fresh lantern every floor
-            }
+            run?.BeginFloor();
             player.transform.SetParent(level.Root.transform);
             if (input != null) player.Controls = input();
             player.Run = run;
@@ -464,7 +397,7 @@ namespace Lumen.Core
             if (Current != State.Playing) return;
             score.Add(score.FloorBonus(Floor, FloorTime), player.transform.position, stealthBonus: false);
             Telemetry.EndFloor(FloorTime, player.Fuel);
-            if (!seenThisFloor && Telemetry.Current != null) Telemetry.Current.unseenFloors++;
+            if (!stealth.SeenThisFloor && Telemetry.Current != null) Telemetry.Current.unseenFloors++;
             GameEvents.RaiseFloorCleared(Floor);
             player.Controllable = false;
 
@@ -522,16 +455,9 @@ namespace Lumen.Core
         (bool record, string text) SettleRun()
         {
             var last = Telemetry.Runs.Count > 0 ? Telemetry.Runs[Telemetry.Runs.Count - 1] : null;
-            int cenizas = Meta.CenizasFor(Score) + cenizasBonus;
-            if (last != null) last.cenizasEarned = cenizas;
+            if (last != null) last.cenizasEarned = RunRewards.CenizasEarned(run, Score);
             if (InputOverride != null) return (false, "");
-
-            bool record = run.Daily ? Meta.SubmitDaily(runSeed, Score) : SaveData.SubmitRun(run.Difficulty, Score, Floor);
-            Meta.Earn(cenizas);
-            var lines = new System.Text.StringBuilder("+" + cenizas + " " + Locale.Get("meta.cenizas"));
-            foreach (var c in Meta.CompleteChallenges(last))
-                lines.Append("\n" + Locale.Get("chal.done") + ": " + Locale.Get(c.NameKey) + "  +" + c.Reward);
-            return (record, lines.ToString());
+            return RunRewards.Settle(run, runSeed, Score, Floor, last);
         }
 
         /// <summary>Ends the current run without a death (used by playtests that hit their time limit).</summary>
@@ -592,9 +518,8 @@ namespace Lumen.Core
             if (Current != State.Playing) return;
 
             RunTime += dt;
-            // Stealth bonus: +0.5 every 10 s unseen, up to x3; any detection resets it.
-            unseenTime += dt;
-            score.Multiplier = Mathf.Min(StealthMax, 1f + 0.5f * Mathf.Floor(unseenTime / StealthStep));
+            stealth.Tick(dt);
+            score.Multiplier = stealth.Multiplier;
             Telemetry.Sample(player.Fuel, player.IsDimmed, player.IsSprinting, dt);
             if (!Headless) tutorial.Tick(dt, level, player);
 

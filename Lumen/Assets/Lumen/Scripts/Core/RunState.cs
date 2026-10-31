@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Lumen.Level;
 using UnityEngine;
 
 namespace Lumen.Core
@@ -25,7 +26,56 @@ namespace Lumen.Core
         public bool Compass;   // this floor: the exit is always marked
         public bool AshBoots;  // whole run: water and wind no longer affect you
         public bool StartWithBlessing;
+        public int CenizasBonus; // found this run (chests, Guardian), added to the score's Cenizas
         public const int MaxOil = 2, MaxLures = 2, MaxActive = 2;
+
+        /// <summary>Adds a picked-up item. False when that slot is already full.</summary>
+        public bool TryCarry(ItemKind kind)
+        {
+            switch (kind)
+            {
+                case ItemKind.Lantern:
+                    if (Lantern) return false;
+                    Lantern = true;
+                    return true;
+                case ItemKind.Oil:
+                    if (Oil >= MaxOil) return false;
+                    Oil++;
+                    return true;
+                case ItemKind.Lure:
+                    if (Lures >= MaxLures) return false;
+                    Lures++;
+                    return true;
+                case ItemKind.ShadowDust:
+                    if (ShadowDust >= MaxActive) return false;
+                    ShadowDust++;
+                    return true;
+                case ItemKind.LightBomb:
+                    if (LightBombs >= MaxActive) return false;
+                    LightBombs++;
+                    return true;
+                case ItemKind.Key:
+                    Keys = true;
+                    return true;
+                case ItemKind.Compass:
+                    Compass = true;
+                    return true;
+                case ItemKind.AshBoots:
+                    if (AshBoots) return false;
+                    AshBoots = true;
+                    return true;
+                default:
+                    return false; // the map is used on the spot, never carried
+            }
+        }
+
+        /// <summary>Keys and the compass only last one floor; Rescoldo gets a fresh lantern on each.</summary>
+        public void BeginFloor()
+        {
+            Keys = false;
+            Compass = false;
+            if (Tuning.lanternEachFloor) Lantern = true;
+        }
 
         /// <summary>Active items in the order E cycles them (Q selects).</summary>
         public enum Active { Lure, ShadowDust, LightBomb }
